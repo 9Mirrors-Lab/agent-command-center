@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 
 interface Props {
   onBroadcast: (message: string) => void;
 }
 
-export default function BroadcastBar({ onBroadcast }: Props) {
+const BroadcastBar = forwardRef<HTMLButtonElement, Props>(({ onBroadcast }, ref) => {
   const [message, setMessage] = useState("");
   const [expanded, setExpanded] = useState(false);
 
@@ -20,6 +20,7 @@ export default function BroadcastBar({ onBroadcast }: Props) {
     return (
       <div className="px-4 py-1 border-b border-border">
         <button
+          ref={ref}
           onClick={() => setExpanded(true)}
           className="text-xs text-text-secondary hover:text-accent transition-colors"
         >
@@ -49,4 +50,7 @@ export default function BroadcastBar({ onBroadcast }: Props) {
       </button>
     </form>
   );
-}
+});
+
+BroadcastBar.displayName = "BroadcastBar";
+export default BroadcastBar;

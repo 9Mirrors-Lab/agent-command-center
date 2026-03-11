@@ -1,4 +1,5 @@
 import { type Subprocess } from "bun";
+import { homedir } from "node:os";
 import type { SpawnConfig, AgentStatus, ToolActivity } from "@acc/shared";
 import { MAX_OUTPUT_LINES, MODEL_PRICING, DEFAULT_ALLOWED_TOOLS } from "@acc/shared";
 import { MessageBus } from "./bus.js";
@@ -55,14 +56,40 @@ export class AgentProcess {
       args.push("--allowedTools", tool);
     }
 
-    // Dangerously skip permissions for headless use
-    args.push("--dangerously-skip-permissions");
+    // Expand ~ to actual home directory
+    let workDir = this.config.workDir;
+    if (workDir.startsWith("~")) {
+      workDir = workDir.replace(/^~/, homedir());
+    }
+
+    // Build clean env without CLAUDECODE
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+
+    // Verify claude binary exists on PATH
+    const claudePath = Bun.which("claude");
+    if (!claudePath) {
+      this.status = "errored";
+      this.bus.publish({
+        type: "agent:text",
+        agentId: this.id,
+        content: "[ERROR] 'claude' binary not found on PATH",
+        timestamp: Date.now(),
+      });
+      this.bus.publish({
+        type: "agent:status",
+        agentId: this.id,
+        status: "errored",
+        timestamp: Date.now(),
+      });
+      return;
+    }
 
     this.proc = Bun.spawn(["claude", ...args], {
-      cwd: this.config.workDir,
+      cwd: workDir,
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, CLAUDECODE: undefined },
+      env,
     });
 
     this.status = "active";

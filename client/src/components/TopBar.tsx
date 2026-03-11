@@ -13,9 +13,11 @@ interface Props {
   filter: "all" | "active" | "idle" | "stopped";
   onFilterChange: (filter: "all" | "active" | "idle" | "stopped") => void;
   onSpawn: () => void;
+  managerEnabled: boolean;
+  onToggleManager: () => void;
 }
 
-export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn }: Props) {
+export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager }: Props) {
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-border">
       {/* Left: Title + connection */}
@@ -48,6 +50,17 @@ export default function TopBar({ stats, connected, filter, onFilterChange, onSpa
           <option value="idle">Idle ({stats.idle})</option>
           <option value="stopped">Stopped ({stats.stopped})</option>
         </select>
+
+        <button
+          onClick={onToggleManager}
+          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+            managerEnabled
+              ? "bg-accent/20 text-accent hover:bg-accent/30"
+              : "bg-bg text-text-secondary hover:text-text-primary border border-border"
+          }`}
+        >
+          Manager {managerEnabled ? "ON" : "OFF"}
+        </button>
 
         <button
           onClick={onSpawn}

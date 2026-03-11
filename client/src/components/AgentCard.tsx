@@ -1,5 +1,6 @@
 import type { AgentState } from "@acc/shared";
 import { formatTokens, formatCost, formatDuration } from "../lib/format";
+import { useTick } from "../hooks/useTick";
 
 interface Props {
   agent: AgentState;
@@ -25,6 +26,7 @@ const statusBorderColors: Record<string, string> = {
 };
 
 export default function AgentCard({ agent, selected, onSelect, onStop, onResume, onHide }: Props) {
+  useTick(1000);
   const uptime = Date.now() - agent.startTime;
   const runningTool = agent.recentTools.findLast((t) => t.status === "running");
   const lastOutput = agent.outputLines[agent.outputLines.length - 1] ?? "";

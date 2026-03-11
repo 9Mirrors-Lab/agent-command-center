@@ -1,6 +1,7 @@
 import type { AgentState, SpawnConfig, BusMessage } from "@acc/shared";
 import { MessageBus } from "./bus.js";
 import { AgentProcess } from "./agent-process.js";
+import { addToStore, removeFromStore, type StoredAgent } from "./session-store.js";
 
 export class AgentManager {
   private agents = new Map<string, AgentProcess>();
@@ -55,6 +56,10 @@ export class AgentManager {
     });
 
     await agent.spawn();
+
+    // Persist agent config for recovery
+    this.persistAgent(agent);
+
     return id;
   }
 
@@ -63,6 +68,8 @@ export class AgentManager {
     if (!agent) return;
 
     agent.stop();
+    this.persistAgent(agent);
+
     this.bus.publish({
       type: "agent:stopped",
       agentId,
@@ -96,10 +103,12 @@ export class AgentManager {
     // Re-spawn with new prompt, resuming the session
     const newConfig = { ...existing.config, prompt };
     const agent = new AgentProcess(agentId, existing.sessionId, newConfig, this.bus);
-    // Carry over accumulated stats
+    // Carry over accumulated state from the original process
     agent.tokens = { ...existing.tokens };
     agent.cost = existing.cost;
     agent.outputLines = [...existing.outputLines];
+    // Preserve original startTime so uptime tracking stays accurate
+    (agent as any).startTime = existing.startTime;
     this.agents.set(agentId, agent);
 
     await agent.spawn(existing.sessionId);
@@ -109,6 +118,31 @@ export class AgentManager {
     const agent = this.agents.get(agentId);
     if (agent?.isAlive()) agent.stop();
     this.agents.delete(agentId);
+    removeFromStore(agentId);
+  }
+
+  private persistAgent(agent: AgentProcess): void {
+    const stored: StoredAgent = {
+      id: agent.id,
+      sessionId: agent.sessionId,
+      name: agent.config.name ?? `Agent ${agent.id.slice(0, 6)}`,
+      config: agent.config,
+      tokens: { ...agent.tokens },
+      cost: agent.cost,
+      startTime: agent.startTime,
+      stoppedAt: agent.status === "stopped" ? Date.now() : undefined,
+    };
+    addToStore(stored);
+  }
+
+  /** Stop all agents — used for graceful shutdown */
+  stopAll(): void {
+    for (const [id, agent] of this.agents) {
+      if (agent.isAlive()) {
+        agent.stop();
+        this.persistAgent(agent);
+      }
+    }
   }
 
   getAll(): AgentState[] {

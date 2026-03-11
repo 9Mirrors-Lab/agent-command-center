@@ -66,6 +66,14 @@ export function handleRequest(
     return handlePrompt(req, promptMatch[1], bus);
   }
 
+  // GET /api/agents/:id/output — full output history
+  const outputMatch = path.match(/^\/api\/agents\/([^/]+)\/output$/);
+  if (outputMatch && req.method === "GET") {
+    const agent = manager.get(outputMatch[1]);
+    if (!agent) return json({ error: "Not found" }, 404);
+    return json({ agentId: outputMatch[1], outputLines: agent.outputLines });
+  }
+
   // DELETE /api/agents/:id
   const deleteMatch = path.match(/^\/api\/agents\/([^/]+)$/);
   if (deleteMatch && req.method === "DELETE") {

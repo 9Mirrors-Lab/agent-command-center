@@ -1,6 +1,8 @@
 import type { AgentState } from "@acc/shared";
 import { formatTokens, formatCost, formatDuration } from "../lib/format";
 import { useState, useRef, useEffect } from "react";
+import { useTick } from "../hooks/useTick";
+import TerminalPanel from "./TerminalPanel";
 
 interface Props {
   agent: AgentState;
@@ -11,7 +13,9 @@ interface Props {
 }
 
 export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume }: Props) {
+  useTick(1000);
   const [prompt, setPrompt] = useState("");
+  const [showTerminal, setShowTerminal] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
@@ -52,6 +56,16 @@ export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume
               Resume
             </button>
           )}
+          <button
+            onClick={() => setShowTerminal(!showTerminal)}
+            className={`text-xs px-2 py-1 rounded ${
+              showTerminal
+                ? "bg-accent/20 text-accent"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Terminal
+          </button>
           <button onClick={onClose} className="text-xs px-2 py-1 rounded text-text-secondary hover:text-text-primary">
             Close
           </button>
@@ -90,29 +104,35 @@ export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume
           </form>
         </div>
 
-        {/* Tool activity sidebar */}
-        <div className="w-64 border-l border-border overflow-auto p-3">
-          <div className="text-xs font-bold text-text-secondary mb-2">TOOLS</div>
-          {agent.recentTools.slice(-10).reverse().map((tool, i) => (
-            <div key={i} className="text-xs mb-1.5 flex items-start gap-1.5">
-              <span className={
-                tool.status === "running" ? "text-accent" :
-                tool.status === "completed" ? "text-success" : "text-error"
-              }>
-                {tool.status === "running" ? ">" : tool.status === "completed" ? "+" : "!"}
-              </span>
-              <div>
-                <span className="text-text-primary">{tool.tool}</span>
-                {tool.target && (
-                  <span className="text-text-secondary ml-1 truncate block max-w-[180px]">{tool.target}</span>
-                )}
+        {/* Right pane: Terminal or Tool sidebar */}
+        {showTerminal ? (
+          <div className="w-[480px] border-l border-border">
+            <TerminalPanel agentId={agent.id} workDir={agent.config.workDir} />
+          </div>
+        ) : (
+          <div className="w-64 border-l border-border overflow-auto p-3">
+            <div className="text-xs font-bold text-text-secondary mb-2">TOOLS</div>
+            {agent.recentTools.slice(-10).reverse().map((tool, i) => (
+              <div key={i} className="text-xs mb-1.5 flex items-start gap-1.5">
+                <span className={
+                  tool.status === "running" ? "text-accent" :
+                  tool.status === "completed" ? "text-success" : "text-error"
+                }>
+                  {tool.status === "running" ? ">" : tool.status === "completed" ? "+" : "!"}
+                </span>
+                <div>
+                  <span className="text-text-primary">{tool.tool}</span>
+                  {tool.target && (
+                    <span className="text-text-secondary ml-1 truncate block max-w-[180px]">{tool.target}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-          {agent.recentTools.length === 0 && (
-            <span className="text-text-secondary text-xs">No tools used yet</span>
-          )}
-        </div>
+            ))}
+            {agent.recentTools.length === 0 && (
+              <span className="text-text-secondary text-xs">No tools used yet</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

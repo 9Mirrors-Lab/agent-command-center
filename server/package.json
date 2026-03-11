@@ -8,7 +8,8 @@
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {
-    "@acc/shared": "workspace:*"
+    "@acc/shared": "workspace:*",
+    "node-pty": "^1.0.0"
   },
   "devDependencies": {
     "bun-types": "^1.3.10"

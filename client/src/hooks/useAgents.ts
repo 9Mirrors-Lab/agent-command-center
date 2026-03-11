@@ -1,5 +1,6 @@
 import { useReducer, useCallback } from "react";
 import type { AgentState, BusMessage, SpawnConfig, AgentSummary } from "@acc/shared";
+import { MODEL_PRICING } from "@acc/shared";
 import { useBus } from "./useBus";
 
 interface State {
@@ -105,9 +106,14 @@ function reducer(state: State, action: Action): State {
         case "agent:tokens": {
           const agent = agents.get(msg.agentId);
           if (agent) {
+            const newTokens = { input: agent.tokens.input + msg.input, output: agent.tokens.output + msg.output };
+            const model = agent.config.model ?? "sonnet";
+            const pricing = MODEL_PRICING[model] ?? MODEL_PRICING.sonnet;
+            const cost = newTokens.input * pricing.input + newTokens.output * pricing.output;
             agents.set(msg.agentId, {
               ...agent,
-              tokens: { input: agent.tokens.input + msg.input, output: agent.tokens.output + msg.output },
+              tokens: newTokens,
+              cost,
               lastActivity: msg.timestamp,
             });
           }
