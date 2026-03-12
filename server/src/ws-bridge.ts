@@ -26,6 +26,7 @@ export class WsBridge {
   }
 
   onOpen(ws: ServerWebSocket<unknown>): void {
+    console.log("[ws-bridge] client connected, total:", this.clients.size + 1);
     this.clients.add(ws);
 
     // Send initial snapshot

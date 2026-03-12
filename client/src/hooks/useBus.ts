@@ -21,7 +21,9 @@ export function useBus(onMessage: MessageHandler) {
 
     function connect() {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
+      // In dev, connect directly to the API server; in prod, use same host
+      const isDev = window.location.port === "5173";
+      const host = isDev ? window.location.hostname + ":4200" : window.location.host;
       const ws = new WebSocket(`${protocol}//${host}/ws`);
       wsRef.current = ws;
 

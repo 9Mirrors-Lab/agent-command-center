@@ -55,7 +55,7 @@ const server = Bun.serve({
     }
 
     // Bus WebSocket upgrade
-    if (url.pathname === "/ws") {
+    if (url.pathname === "/ws" || url.pathname === "/ws/bus") {
       const upgraded = server.upgrade(req, { data: { type: "bus" } as any });
       if (!upgraded) {
         return new Response("WebSocket upgrade failed", { status: 400 });
