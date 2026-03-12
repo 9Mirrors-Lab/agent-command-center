@@ -7,6 +7,8 @@ import AgentDetail from "./components/AgentDetail";
 import SpawnDialog from "./components/SpawnDialog";
 import BroadcastBar from "./components/BroadcastBar";
 import HiddenAgentsBar from "./components/HiddenAgentsBar";
+import ApprovalQueue from "./components/ApprovalQueue";
+import ObserverPanel from "./components/ObserverPanel";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useState, useMemo, useCallback, useRef } from "react";
 
@@ -116,6 +118,16 @@ function AppContent() {
         onToggleManager={toggleManager}
       />
 
+      {agents.pendingApprovals.length > 0 && (
+        <ApprovalQueue
+          approvals={agents.pendingApprovals}
+          agents={agents.agents}
+          onAccept={agents.acceptApproval}
+          onReject={agents.rejectApproval}
+          onAcceptAll={agents.acceptAllApprovals}
+        />
+      )}
+
       {agents.managerSummary && (
         <ManagerPanel
           summary={agents.managerSummary}
@@ -123,6 +135,13 @@ function AppContent() {
           alerts={agents.alerts}
         />
       )}
+
+      <ObserverPanel
+        suggestions={agents.observerSuggestions}
+        agents={agents.agents}
+        onApply={agents.applySuggestion}
+        onDismiss={agents.dismissSuggestion}
+      />
 
       <BroadcastBar onBroadcast={agents.broadcastMessage} ref={broadcastRef} />
 

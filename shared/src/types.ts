@@ -26,6 +26,8 @@ export interface AgentState {
   currentTask?: string;
   recentTools: ToolActivity[];
   outputLines: string[];
+  timeline: TimelineEvent[];
+  pendingApprovals: PendingApproval[];
 }
 
 export interface ToolActivity {
@@ -44,6 +46,55 @@ export interface AgentSummary {
 }
 
 export type ManagerMode = "observe" | "semi-auto" | "auto";
+
+// ── Approval Gates ──
+export type ApprovalType = "plan" | "continue" | "permission" | "confirm";
+
+export interface PendingApproval {
+  id: string;
+  agentId: string;
+  type: ApprovalType;
+  title: string;
+  detail: string;
+  createdAt: number;
+  resolved: boolean;
+}
+
+// ── Context Timeline ──
+export type TimelineEventKind =
+  | "task-start"
+  | "phase-change"
+  | "tool-batch"
+  | "decision"
+  | "error"
+  | "approval-requested"
+  | "approval-resolved"
+  | "idle";
+
+export interface TimelineEvent {
+  kind: TimelineEventKind;
+  summary: string;
+  detail?: string;
+  timestamp: number;
+}
+
+// ── Observer Suggestions ──
+export type SuggestionAction =
+  | { action: "fork-subagent"; prompt: string; model?: string }
+  | { action: "switch-model"; model: string }
+  | { action: "retry-different-approach"; prompt: string }
+  | { action: "stop-agent" }
+  | { action: "custom"; label: string; prompt: string };
+
+export interface ObserverSuggestion {
+  id: string;
+  agentId: string;
+  title: string;
+  reasoning: string;
+  suggestedAction: SuggestionAction;
+  createdAt: number;
+  applied: boolean;
+}
 
 // ── Bus Messages ──
 export type BusMessage =
@@ -64,6 +115,14 @@ export type BusMessage =
   | { type: "manager:summary"; summary: string; agentStates: AgentSummary[]; timestamp: number }
   | { type: "manager:alert"; agentId: string; alert: string; severity: "info" | "warn" | "error"; timestamp: number }
   | { type: "manager:suggestion"; agentId: string; suggestion: string; timestamp: number }
+  // Approval gates
+  | { type: "approval:requested"; agentId: string; approval: PendingApproval; timestamp: number }
+  | { type: "approval:resolved"; agentId: string; approvalId: string; accepted: boolean; timestamp: number }
+  // Timeline
+  | { type: "agent:timeline"; agentId: string; event: TimelineEvent; timestamp: number }
+  // Observer suggestions
+  | { type: "observer:suggestion"; suggestion: ObserverSuggestion; timestamp: number }
+  | { type: "observer:apply"; suggestionId: string; timestamp: number }
   // User actions
   | { type: "user:spawn"; config: SpawnConfig; timestamp: number }
   | { type: "user:message"; agentId: string; message: string; timestamp: number }

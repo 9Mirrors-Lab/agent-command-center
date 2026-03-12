@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from "react";
-import type { AgentState, BusMessage, SpawnConfig, AgentSummary } from "@acc/shared";
+import type { AgentState, BusMessage, SpawnConfig, AgentSummary, PendingApproval, ObserverSuggestion } from "@acc/shared";
 import { MODEL_PRICING } from "@acc/shared";
 import { useBus } from "./useBus";
 
@@ -16,6 +16,8 @@ interface State {
   managerSummary: string | null;
   managerAssessments: AgentSummary[];
   alerts: Array<{ agentId: string; alert: string; severity: string; timestamp: number }>;
+  pendingApprovals: PendingApproval[];
+  observerSuggestions: ObserverSuggestion[];
   filter: "all" | "active" | "idle" | "stopped";
   hiddenAgents: Set<string>;
   selectedAgent: string | null;
@@ -26,7 +28,9 @@ type Action =
   | { type: "BUS_MESSAGE"; msg: BusMessage }
   | { type: "SET_FILTER"; filter: State["filter"] }
   | { type: "TOGGLE_HIDDEN"; agentId: string }
-  | { type: "SELECT_AGENT"; agentId: string | null };
+  | { type: "SELECT_AGENT"; agentId: string | null }
+  | { type: "DISMISS_SUGGESTION"; suggestionId: string }
+  | { type: "APPLY_SUGGESTION"; suggestionId: string };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -54,6 +58,8 @@ function reducer(state: State, action: Action): State {
             currentTask: msg.config.prompt.slice(0, 100),
             recentTools: [],
             outputLines: [],
+            timeline: [],
+            pendingApprovals: [],
           };
           agents.set(msg.agentId, newAgent);
           break;
@@ -134,6 +140,45 @@ function reducer(state: State, action: Action): State {
             agents,
             alerts: [...state.alerts, { agentId: msg.agentId, alert: msg.alert, severity: msg.severity, timestamp: msg.timestamp }].slice(-20),
           };
+
+        case "approval:requested":
+          return {
+            ...state,
+            agents,
+            pendingApprovals: [...state.pendingApprovals, msg.approval],
+          };
+
+        case "approval:resolved":
+          return {
+            ...state,
+            agents,
+            pendingApprovals: state.pendingApprovals.filter((a) => a.id !== msg.approvalId),
+          };
+
+        case "agent:timeline": {
+          const agent = agents.get(msg.agentId);
+          if (agent) {
+            const timeline = [...agent.timeline, msg.event].slice(-100);
+            agents.set(msg.agentId, { ...agent, timeline, lastActivity: msg.timestamp });
+          }
+          break;
+        }
+
+        case "observer:suggestion":
+          return {
+            ...state,
+            agents,
+            observerSuggestions: [...state.observerSuggestions, msg.suggestion],
+          };
+
+        case "observer:apply":
+          return {
+            ...state,
+            agents,
+            observerSuggestions: state.observerSuggestions.map((s) =>
+              s.id === msg.suggestionId ? { ...s, applied: true } : s
+            ),
+          };
       }
 
       // Recalculate stats
@@ -166,6 +211,20 @@ function reducer(state: State, action: Action): State {
     case "SELECT_AGENT":
       return { ...state, selectedAgent: action.agentId };
 
+    case "DISMISS_SUGGESTION":
+      return {
+        ...state,
+        observerSuggestions: state.observerSuggestions.filter((s) => s.id !== action.suggestionId),
+      };
+
+    case "APPLY_SUGGESTION":
+      return {
+        ...state,
+        observerSuggestions: state.observerSuggestions.map((s) =>
+          s.id === action.suggestionId ? { ...s, applied: true } : s
+        ),
+      };
+
     default:
       return state;
   }
@@ -177,6 +236,8 @@ const initialState: State = {
   managerSummary: null,
   managerAssessments: [],
   alerts: [],
+  pendingApprovals: [],
+  observerSuggestions: [],
   filter: "all",
   hiddenAgents: new Set(),
   selectedAgent: null,
@@ -218,6 +279,32 @@ export function useAgents() {
     send({ type: "user:broadcast", message, timestamp: Date.now() });
   }, [send]);
 
+  const acceptApproval = useCallback(async (approvalId: string) => {
+    await fetch(`/api/approvals/${approvalId}/accept`, { method: "POST" });
+  }, []);
+
+  const rejectApproval = useCallback(async (approvalId: string) => {
+    await fetch(`/api/approvals/${approvalId}/reject`, { method: "POST" });
+  }, []);
+
+  const acceptAllApprovals = useCallback(async () => {
+    await fetch("/api/approvals/accept-all", { method: "POST" });
+  }, []);
+
+  const applySuggestion = useCallback(async (suggestionId: string) => {
+    // Optimistically mark as applied
+    dispatch({ type: "APPLY_SUGGESTION", suggestionId });
+    try {
+      await fetch(`/api/observer/suggestions/${suggestionId}/apply`, { method: "POST" });
+    } catch (err) {
+      console.error("Failed to apply suggestion:", err);
+    }
+  }, []);
+
+  const dismissSuggestion = useCallback((suggestionId: string) => {
+    dispatch({ type: "DISMISS_SUGGESTION", suggestionId });
+  }, []);
+
   const filteredAgents = Array.from(state.agents.values()).filter((a) => {
     if (state.hiddenAgents.has(a.id)) return false;
     if (state.filter === "all") return true;
@@ -234,6 +321,11 @@ export function useAgents() {
     resumeAgent,
     promptAgent,
     broadcastMessage,
+    acceptApproval,
+    rejectApproval,
+    acceptAllApprovals,
+    applySuggestion,
+    dismissSuggestion,
     setFilter: (filter: State["filter"]) => dispatch({ type: "SET_FILTER", filter }),
     toggleHidden: (id: string) => dispatch({ type: "TOGGLE_HIDDEN", agentId: id }),
     selectAgent: (id: string | null) => dispatch({ type: "SELECT_AGENT", agentId: id }),

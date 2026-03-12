@@ -74,6 +74,7 @@ export class AgentProcess {
         type: "agent:text",
         agentId: this.id,
         content: "[ERROR] 'claude' binary not found on PATH",
+        partial: false,
         timestamp: Date.now(),
       });
       this.bus.publish({
@@ -119,7 +120,7 @@ export class AgentProcess {
   private async readStream(): Promise<void> {
     if (!this.proc?.stdout) return;
 
-    const reader = this.proc.stdout.getReader();
+    const reader = (this.proc.stdout as ReadableStream<Uint8Array>).getReader();
     const decoder = new TextDecoder();
     let buffer = "";
 
@@ -148,7 +149,7 @@ export class AgentProcess {
 
   private async readStderr(): Promise<void> {
     if (!this.proc?.stderr) return;
-    const reader = this.proc.stderr.getReader();
+    const reader = (this.proc.stderr as ReadableStream<Uint8Array>).getReader();
     const decoder = new TextDecoder();
     try {
       while (true) {
@@ -186,7 +187,7 @@ export class AgentProcess {
         break;
 
       case "agent:tool_result": {
-        const tool = this.recentTools.findLast((t) => t.status === "running");
+        const tool = this.recentTools.findLast((t: ToolActivity) => t.status === "running");
         if (tool) {
           tool.status = msg.success ? "completed" : "error";
           tool.endTime = msg.timestamp;
@@ -234,6 +235,8 @@ export class AgentProcess {
       currentTask: this.currentTask,
       recentTools: [...this.recentTools.slice(-5)],
       outputLines: this.outputLines.slice(-50),
+      timeline: [],
+      pendingApprovals: [],
     };
   }
 }

@@ -19,7 +19,7 @@ export function handleRequest(
   req: Request,
   manager: AgentManager,
   bus: MessageBus
-): Response | null {
+): Response | Promise<Response> | null {
   const url = new URL(req.url);
   const path = url.pathname;
 

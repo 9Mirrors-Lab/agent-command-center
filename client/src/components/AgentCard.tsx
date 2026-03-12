@@ -1,6 +1,7 @@
 import type { AgentState } from "@acc/shared";
 import { formatTokens, formatCost, formatDuration } from "../lib/format";
 import { useTick } from "../hooks/useTick";
+import { TimelineBreadcrumb } from "./AgentTimeline";
 
 interface Props {
   agent: AgentState;
@@ -55,12 +56,14 @@ export default function AgentCard({ agent, selected, onSelect, onStop, onResume,
         {agent.currentTask ?? "No task"}
       </p>
 
-      {/* Active tool */}
-      {runningTool && (
+      {/* Timeline breadcrumb or active tool fallback */}
+      {agent.timeline && agent.timeline.length > 0 ? (
+        <TimelineBreadcrumb timeline={agent.timeline} />
+      ) : runningTool ? (
         <div className="text-xs text-accent mb-2 truncate">
           {runningTool.tool}{runningTool.target ? `: ${runningTool.target}` : ""}
         </div>
-      )}
+      ) : null}
 
       {/* Last output preview */}
       {lastOutput && (

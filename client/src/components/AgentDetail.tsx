@@ -3,6 +3,9 @@ import { formatTokens, formatCost, formatDuration } from "../lib/format";
 import { useState, useRef, useEffect } from "react";
 import { useTick } from "../hooks/useTick";
 import TerminalPanel from "./TerminalPanel";
+import AgentTimeline from "./AgentTimeline";
+
+type RightPane = "timeline" | "tools" | "terminal";
 
 interface Props {
   agent: AgentState;
@@ -15,7 +18,7 @@ interface Props {
 export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume }: Props) {
   useTick(1000);
   const [prompt, setPrompt] = useState("");
-  const [showTerminal, setShowTerminal] = useState(false);
+  const [rightPane, setRightPane] = useState<RightPane>("timeline");
   const outputRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
@@ -31,6 +34,19 @@ export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume
     onPrompt(prompt);
     setPrompt("");
   };
+
+  const paneButton = (pane: RightPane, label: string) => (
+    <button
+      onClick={() => setRightPane(rightPane === pane ? "timeline" : pane)}
+      className={`text-xs px-2 py-1 rounded ${
+        rightPane === pane
+          ? "bg-accent/20 text-accent"
+          : "text-text-secondary hover:text-text-primary"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="border-t border-border bg-surface">
@@ -56,23 +72,16 @@ export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume
               Resume
             </button>
           )}
-          <button
-            onClick={() => setShowTerminal(!showTerminal)}
-            className={`text-xs px-2 py-1 rounded ${
-              showTerminal
-                ? "bg-accent/20 text-accent"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            Terminal
-          </button>
+          {paneButton("timeline", "Timeline")}
+          {paneButton("tools", "Tools")}
+          {paneButton("terminal", "Terminal")}
           <button onClick={onClose} className="text-xs px-2 py-1 rounded text-text-secondary hover:text-text-primary">
             Close
           </button>
         </div>
       </div>
 
-      {/* Content: Output + Tools */}
+      {/* Content: Output + Right Pane */}
       <div className="flex" style={{ height: "300px" }}>
         {/* Output stream */}
         <div className="flex-1 flex flex-col">
@@ -104,10 +113,19 @@ export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume
           </form>
         </div>
 
-        {/* Right pane: Terminal or Tool sidebar */}
-        {showTerminal ? (
+        {/* Right pane */}
+        {rightPane === "terminal" ? (
           <div className="w-[480px] border-l border-border">
             <TerminalPanel agentId={agent.id} workDir={agent.config.workDir} />
+          </div>
+        ) : rightPane === "timeline" ? (
+          <div className="w-72 border-l border-border">
+            <div className="px-3 pt-2 pb-1">
+              <div className="text-xs font-bold text-text-secondary">TIMELINE</div>
+            </div>
+            <div style={{ height: "calc(100% - 28px)" }}>
+              <AgentTimeline timeline={agent.timeline ?? []} />
+            </div>
           </div>
         ) : (
           <div className="w-64 border-l border-border overflow-auto p-3">
