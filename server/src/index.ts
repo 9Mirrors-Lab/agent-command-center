@@ -200,9 +200,13 @@ const server = Bun.serve({
       const data = ws.data as { type: string; agentId?: string } | undefined;
       if (data?.type === "terminal" && data.agentId) {
         // Terminal WebSocket — attach to PTY
-        const agent = manager.get(data.agentId);
-        const workDir = agent?.config.workDir || process.env.HOME || "/";
-        ptyManager.attach(data.agentId, workDir, ws);
+        try {
+          const agent = manager.get(data.agentId);
+          const workDir = agent?.config.workDir || process.env.HOME || "/";
+          ptyManager.attach(data.agentId, workDir, ws);
+        } catch (err) {
+          console.error("[pty] attach error:", err);
+        }
       } else {
         // Bus WebSocket
         wsBridge.onOpen(ws);

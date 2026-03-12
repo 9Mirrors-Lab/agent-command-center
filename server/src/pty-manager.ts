@@ -43,17 +43,25 @@ export class PtyManager {
     // Determine shell
     const shell = process.env.SHELL || "/bin/zsh";
 
-    const pty = nodePty.spawn(shell, [], {
-      name: "xterm-256color",
-      cols: 80,
-      rows: 24,
-      cwd: workDir || process.env.HOME || "/",
-      env: {
-        ...process.env,
-        TERM: "xterm-256color",
-        COLORTERM: "truecolor",
-      } as Record<string, string>,
-    });
+    let pty: import("node-pty").IPty;
+    try {
+      pty = nodePty.spawn(shell, [], {
+        name: "xterm-256color",
+        cols: 80,
+        rows: 24,
+        cwd: workDir || process.env.HOME || "/",
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          COLORTERM: "truecolor",
+        } as Record<string, string>,
+      });
+    } catch (err) {
+      console.error("[pty-manager] failed to spawn PTY:", err);
+      ws.send(JSON.stringify({ type: "error", message: "Failed to spawn terminal" }));
+      ws.close();
+      return;
+    }
 
     const session: PtySession = { pty, ws };
     this.sessions.set(agentId, session);
