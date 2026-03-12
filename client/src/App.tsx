@@ -9,6 +9,7 @@ import BroadcastBar from "./components/BroadcastBar";
 import HiddenAgentsBar from "./components/HiddenAgentsBar";
 import ApprovalQueue from "./components/ApprovalQueue";
 import ObserverPanel from "./components/ObserverPanel";
+import ConnectionStatus from "./components/ConnectionStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useState, useMemo, useCallback, useRef } from "react";
 
@@ -176,6 +177,8 @@ function AppContent() {
           onClose={() => setShowSpawn(false)}
         />
       )}
+
+      <ConnectionStatus connected={agents.connected} />
     </div>
   );
 }

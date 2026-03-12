@@ -42,9 +42,12 @@ export class ManagerAgent {
 
     try {
       // Call claude in headless mode for summarization
+      const env = { ...process.env };
+      delete env.CLAUDECODE;
+
       const proc = Bun.spawn(
         ["claude", "-p", prompt, "--output-format", "json", "--model", "haiku"],
-        { stdout: "pipe", stderr: "pipe" }
+        { stdout: "pipe", stderr: "pipe", env }
       );
 
       const output = await new Response(proc.stdout).text();
