@@ -1,7 +1,6 @@
 {
   "name": "agent-command-center",
   "private": true,
-  "workspaces": ["shared", "server", "client"],
   "scripts": {
     "dev": "concurrently \"bun run dev:server\" \"bun run dev:client\"",
     "dev:server": "cd server && bun --watch src/index.ts",
@@ -10,5 +9,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "typescript": "^5.9.3"
   }
 }
