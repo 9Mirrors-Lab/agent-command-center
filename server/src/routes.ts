@@ -86,6 +86,11 @@ export function handleRequest(
     return json(manager.getStats());
   }
 
+  // GET /api/machines — list available machines
+  if (path === "/api/machines" && req.method === "GET") {
+    return json({ machines: manager.getMachineRegistry().listMachines() });
+  }
+
   return null; // Not an API route
 }
 
@@ -102,6 +107,9 @@ async function handleSpawn(req: Request, manager: AgentManager): Promise<Respons
       model: body.model,
       budget: body.budget,
       allowedTools: body.allowedTools,
+      runtime: body.runtime,
+      role: body.role,
+      machine: body.machine,
     };
     const agentId = await manager.spawn(config);
     return json({ agentId, ok: true }, 201);

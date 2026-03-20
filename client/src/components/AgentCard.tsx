@@ -1,4 +1,5 @@
 import type { AgentState } from "@acc/shared";
+import { RUNTIME_INFO } from "@acc/shared";
 import { formatTokens, formatCost, formatDuration } from "../lib/format";
 import { useTick } from "../hooks/useTick";
 import { TimelineBreadcrumb } from "./AgentTimeline";
@@ -45,8 +46,22 @@ export default function AgentCard({ agent, selected, onSelect, onStop, onResume,
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${statusColors[agent.status]}`} />
-          <span className="text-sm font-medium truncate max-w-[180px]">{agent.name}</span>
+          {agent.role === "coordinator" && (
+            <span className="text-[10px] font-bold px-1 rounded bg-accent/20 text-accent">C</span>
+          )}
+          {agent.role === "worker" && (
+            <span className="text-[10px] font-bold px-1 rounded bg-warning/20 text-warning">W</span>
+          )}
+          <span className="text-sm font-medium truncate max-w-[160px]">{agent.name}</span>
+          {(agent.runtime ?? "claude") !== "claude" && (
+            <span className="text-[10px] px-1 rounded bg-surface-hover text-text-secondary">
+              {RUNTIME_INFO[agent.runtime ?? "claude"]?.label ?? agent.runtime}
+            </span>
+          )}
           <span className="text-xs text-text-secondary">{agent.config.model ?? "sonnet"}</span>
+          {agent.config.machine && (
+            <span className="text-[10px] px-1 rounded bg-accent/10 text-accent">@{agent.config.machine}</span>
+          )}
         </div>
         <span className="text-xs text-text-secondary">{formatDuration(uptime)}</span>
       </div>

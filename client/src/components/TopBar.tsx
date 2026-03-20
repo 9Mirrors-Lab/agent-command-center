@@ -1,3 +1,4 @@
+import type { ViewMode } from "@acc/shared";
 import { formatTokens, formatCost } from "../lib/format";
 
 interface Props {
@@ -15,9 +16,17 @@ interface Props {
   onSpawn: () => void;
   managerEnabled: boolean;
   onToggleManager: () => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
 }
 
-export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager }: Props) {
+const viewModeLabels: Record<ViewMode, string> = {
+  grid: "Grid",
+  pipeline: "Pipeline",
+  focus: "Focus",
+};
+
+export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager, viewMode, onViewModeChange }: Props) {
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-border">
       {/* Left: Title + connection */}
@@ -38,8 +47,25 @@ export default function TopBar({ stats, connected, filter, onFilterChange, onSpa
         <span className="text-text-secondary">{formatCost(stats.totalCost)}</span>
       </div>
 
-      {/* Right: Filter + Spawn */}
+      {/* Right: View mode + Filter + Spawn */}
       <div className="flex items-center gap-2">
+        {/* View mode toggle */}
+        <div className="flex bg-bg rounded border border-border">
+          {(["grid", "pipeline", "focus"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => onViewModeChange(mode)}
+              className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                viewMode === mode
+                  ? "bg-accent/20 text-accent"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {viewModeLabels[mode]}
+            </button>
+          ))}
+        </div>
+
         <select
           value={filter}
           onChange={(e) => onFilterChange(e.target.value as any)}

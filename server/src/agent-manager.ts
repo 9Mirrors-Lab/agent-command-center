@@ -1,14 +1,17 @@
-import type { AgentState, SpawnConfig, BusMessage } from "@acc/shared";
+import type { AgentState, SpawnConfig, BusMessage, RuntimeType } from "@acc/shared";
 import { MessageBus } from "./bus.js";
 import { AgentProcess } from "./agent-process.js";
 import { addToStore, removeFromStore, type StoredAgent } from "./session-store.js";
+import { MachineRegistry } from "./machine-registry.js";
 
 export class AgentManager {
   private agents = new Map<string, AgentProcess>();
   private bus: MessageBus;
+  private machineRegistry: MachineRegistry;
 
-  constructor(bus: MessageBus) {
+  constructor(bus: MessageBus, machineRegistry?: MachineRegistry) {
     this.bus = bus;
+    this.machineRegistry = machineRegistry ?? new MachineRegistry();
 
     // Subscribe to bus commands
     bus.subscribe((msg) => this.handleBusMessage(msg));
@@ -38,14 +41,30 @@ export class AgentManager {
           }
         }
         break;
+
+      case "agent:delegate":
+        this.handleDelegation(msg.agentId, msg.task, msg.model, (msg as any).runtime);
+        break;
+
+      case "agent:status":
+        // When a worker finishes, send results back to parent
+        if (msg.status === "idle") {
+          this.handleWorkerCompletion(msg.agentId);
+        }
+        break;
     }
+  }
+
+  getMachineRegistry(): MachineRegistry {
+    return this.machineRegistry;
   }
 
   async spawn(config: SpawnConfig): Promise<string> {
     const id = crypto.randomUUID();
     const sessionId = crypto.randomUUID();
 
-    const agent = new AgentProcess(id, sessionId, config, this.bus);
+    const machine = config.machine ? this.machineRegistry.getMachine(config.machine) : undefined;
+    const agent = new AgentProcess(id, sessionId, config, this.bus, machine);
     this.agents.set(id, agent);
 
     this.bus.publish({
@@ -112,6 +131,49 @@ export class AgentManager {
     this.agents.set(agentId, agent);
 
     await agent.spawn(existing.sessionId);
+  }
+
+  private async handleDelegation(parentId: string, task: string, model?: string, runtime?: RuntimeType): Promise<void> {
+    const parent = this.agents.get(parentId);
+    if (!parent) return;
+
+    const workerConfig: SpawnConfig = {
+      prompt: task,
+      workDir: parent.config.workDir,
+      name: `Worker: ${task.slice(0, 40)}`,
+      model: (model as SpawnConfig["model"]) ?? parent.config.model ?? "sonnet",
+      runtime: runtime ?? parent.config.runtime ?? "claude",
+      role: "worker",
+      workerAssignment: {
+        parentId,
+        taskDescription: task,
+        assignedAt: Date.now(),
+      },
+    };
+
+    await this.spawn(workerConfig);
+  }
+
+  private handleWorkerCompletion(agentId: string): void {
+    const agent = this.agents.get(agentId);
+    if (!agent || agent.config.role !== "worker" || !agent.config.workerAssignment) return;
+
+    const { parentId, taskDescription } = agent.config.workerAssignment;
+    const summary = agent.outputLines.slice(-20).join("\n");
+
+    this.bus.publish({
+      type: "agent:worker-result",
+      agentId,
+      parentId,
+      summary,
+      timestamp: Date.now(),
+    });
+
+    // Forward condensed results to parent coordinator
+    const parent = this.agents.get(parentId);
+    if (parent && parent.isAlive()) {
+      this.promptAgent(parentId, `Worker completed task "${taskDescription}":\n\n${summary}`);
+    }
   }
 
   remove(agentId: string): void {

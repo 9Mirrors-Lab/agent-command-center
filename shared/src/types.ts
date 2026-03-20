@@ -1,5 +1,19 @@
+// ── Runtime Types ──
+export type RuntimeType = "claude" | "codex" | "cursor" | "opencode";
+
 // ── Agent Status ──
 export type AgentStatus = "active" | "idle" | "stopped" | "errored";
+
+// ── Agent Roles ──
+export type AgentRole = "standalone" | "coordinator" | "worker";
+
+export interface WorkerAssignment {
+  parentId: string;
+  taskDescription: string;
+  assignedAt: number;
+  completedAt?: number;
+  result?: string;
+}
 
 // ── Spawn Config ──
 export interface SpawnConfig {
@@ -9,6 +23,10 @@ export interface SpawnConfig {
   model?: "opus" | "sonnet" | "haiku";
   budget?: number;
   allowedTools?: string[];
+  runtime?: RuntimeType;
+  role?: AgentRole;
+  workerAssignment?: WorkerAssignment;
+  machine?: string;
 }
 
 // ── Agent State ──
@@ -28,7 +46,23 @@ export interface AgentState {
   outputLines: string[];
   timeline: TimelineEvent[];
   pendingApprovals: PendingApproval[];
+  runtime: RuntimeType;
+  role: AgentRole;
+  workerAssignment?: WorkerAssignment;
+  childAgentIds: string[];
 }
+
+// ── Machine Config ──
+export interface MachineConfig {
+  name: string;
+  host?: string;
+  user?: string;
+  sshKey?: string;
+  tmuxSession?: string;
+}
+
+// ── View Mode ──
+export type ViewMode = "grid" | "pipeline" | "focus";
 
 export interface ToolActivity {
   tool: string;
@@ -123,6 +157,9 @@ export type BusMessage =
   // Observer suggestions
   | { type: "observer:suggestion"; suggestion: ObserverSuggestion; timestamp: number }
   | { type: "observer:apply"; suggestionId: string; timestamp: number }
+  // Delegation
+  | { type: "agent:delegate"; agentId: string; task: string; model?: string; runtime?: RuntimeType; timestamp: number }
+  | { type: "agent:worker-result"; agentId: string; parentId: string; summary: string; timestamp: number }
   // User actions
   | { type: "user:spawn"; config: SpawnConfig; timestamp: number }
   | { type: "user:message"; agentId: string; message: string; timestamp: number }

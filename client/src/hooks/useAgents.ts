@@ -60,8 +60,22 @@ function reducer(state: State, action: Action): State {
             outputLines: [],
             timeline: [],
             pendingApprovals: [],
+            runtime: msg.config.runtime ?? "claude",
+            role: msg.config.role ?? "standalone",
+            workerAssignment: msg.config.workerAssignment,
+            childAgentIds: [],
           };
           agents.set(msg.agentId, newAgent);
+          // Track child on parent coordinator
+          if (msg.config.workerAssignment?.parentId) {
+            const parent = agents.get(msg.config.workerAssignment.parentId);
+            if (parent) {
+              agents.set(parent.id, {
+                ...parent,
+                childAgentIds: [...parent.childAgentIds, msg.agentId],
+              });
+            }
+          }
           break;
         }
 
@@ -113,14 +127,28 @@ function reducer(state: State, action: Action): State {
           const agent = agents.get(msg.agentId);
           if (agent) {
             const newTokens = { input: agent.tokens.input + msg.input, output: agent.tokens.output + msg.output };
-            const model = agent.config.model ?? "sonnet";
-            const pricing = MODEL_PRICING[model] ?? MODEL_PRICING.sonnet;
-            const cost = newTokens.input * pricing.input + newTokens.output * pricing.output;
+            let cost = agent.cost;
+            if ((agent.runtime ?? "claude") === "claude") {
+              const model = agent.config.model ?? "sonnet";
+              const pricing = MODEL_PRICING[model] ?? MODEL_PRICING.sonnet;
+              cost = newTokens.input * pricing.input + newTokens.output * pricing.output;
+            }
             agents.set(msg.agentId, {
               ...agent,
               tokens: newTokens,
               cost,
               lastActivity: msg.timestamp,
+            });
+          }
+          break;
+        }
+
+        case "agent:worker-result": {
+          const worker = agents.get(msg.agentId);
+          if (worker?.workerAssignment) {
+            agents.set(msg.agentId, {
+              ...worker,
+              workerAssignment: { ...worker.workerAssignment, completedAt: msg.timestamp, result: msg.summary },
             });
           }
           break;

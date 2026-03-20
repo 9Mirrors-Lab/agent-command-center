@@ -14,3 +14,16 @@ export const DEFAULT_ALLOWED_TOOLS = [
   "Bash", "Edit", "Read", "Write", "Glob", "Grep",
   "WebSearch", "WebFetch",
 ];
+
+export const RUNTIME_INFO: Record<string, {
+  label: string;
+  binaryName: string;
+  isMultiTurn: boolean;
+  supportsModel: boolean;
+  supportsBudget: boolean;
+}> = {
+  claude: { label: "Claude Code", binaryName: "claude", isMultiTurn: true, supportsModel: true, supportsBudget: true },
+  codex: { label: "Codex", binaryName: "codex", isMultiTurn: false, supportsModel: false, supportsBudget: false },
+  cursor: { label: "Cursor Agent", binaryName: "cursor-agent", isMultiTurn: false, supportsModel: false, supportsBudget: false },
+  opencode: { label: "OpenCode", binaryName: "opencode", isMultiTurn: false, supportsModel: false, supportsBudget: false },
+};

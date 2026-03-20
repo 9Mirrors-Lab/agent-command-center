@@ -1,9 +1,12 @@
+import type { ViewMode } from "@acc/shared";
 import { useAgents } from "./hooks/useAgents";
 import { useKeyboard } from "./hooks/useKeyboard";
 import TopBar from "./components/TopBar";
 import ManagerPanel from "./components/ManagerPanel";
 import AgentGrid from "./components/AgentGrid";
 import AgentDetail from "./components/AgentDetail";
+import PipelineView from "./components/PipelineView";
+import FocusView from "./components/FocusView";
 import SpawnDialog from "./components/SpawnDialog";
 import BroadcastBar from "./components/BroadcastBar";
 import HiddenAgentsBar from "./components/HiddenAgentsBar";
@@ -13,11 +16,14 @@ import ConnectionStatus from "./components/ConnectionStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useState, useMemo, useCallback, useRef } from "react";
 
+const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus"];
+
 function AppContent() {
   const agents = useAgents();
   const [showSpawn, setShowSpawn] = useState(false);
   const [managerEnabled, setManagerEnabled] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const broadcastRef = useRef<HTMLButtonElement>(null);
 
   const selectedAgent = agents.selectedAgent
@@ -98,6 +104,12 @@ function AppContent() {
       }
     },
     onToggleManager: toggleManager,
+    onCycleView: () => {
+      setViewMode((prev) => {
+        const idx = VIEW_CYCLE.indexOf(prev);
+        return VIEW_CYCLE[(idx + 1) % VIEW_CYCLE.length];
+      });
+    },
   }), [showSpawn, agents, focusedIndex, toggleManager]);
 
   useKeyboard(keyboardActions);
@@ -117,6 +129,8 @@ function AppContent() {
         onSpawn={() => setShowSpawn(true)}
         managerEnabled={managerEnabled}
         onToggleManager={toggleManager}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       {agents.pendingApprovals.length > 0 && (
@@ -146,29 +160,55 @@ function AppContent() {
 
       <BroadcastBar onBroadcast={agents.broadcastMessage} ref={broadcastRef} />
 
-      <AgentGrid
-        agents={agents.filteredAgents}
-        selectedId={agents.selectedAgent}
-        focusedId={focusedId}
-        onSelect={agents.selectAgent}
-        onStop={agents.stopAgent}
-        onResume={agents.resumeAgent}
-        onToggleHidden={agents.toggleHidden}
-      />
-
-      <HiddenAgentsBar
-        hiddenAgents={hiddenAgents}
-        onUnhide={agents.toggleHidden}
-      />
-
-      {selectedAgent && (
-        <AgentDetail
-          agent={selectedAgent}
-          onClose={() => agents.selectAgent(null)}
-          onPrompt={(prompt) => agents.promptAgent(selectedAgent.id, prompt)}
-          onStop={() => agents.stopAgent(selectedAgent.id)}
-          onResume={() => agents.resumeAgent(selectedAgent.id)}
+      {/* Main content area — switches based on view mode */}
+      {viewMode === "grid" && (
+        <AgentGrid
+          agents={agents.filteredAgents}
+          selectedId={agents.selectedAgent}
+          focusedId={focusedId}
+          onSelect={agents.selectAgent}
+          onStop={agents.stopAgent}
+          onResume={agents.resumeAgent}
+          onToggleHidden={agents.toggleHidden}
         />
+      )}
+
+      {viewMode === "pipeline" && (
+        <PipelineView
+          agents={agents.filteredAgents}
+          selectedId={agents.selectedAgent}
+          onSelect={agents.selectAgent}
+        />
+      )}
+
+      {viewMode === "focus" && (
+        <FocusView
+          agent={selectedAgent}
+          agents={agents.filteredAgents}
+          onSelect={agents.selectAgent}
+          onPrompt={agents.promptAgent}
+          onStop={agents.stopAgent}
+          onResume={agents.resumeAgent}
+        />
+      )}
+
+      {viewMode !== "focus" && (
+        <>
+          <HiddenAgentsBar
+            hiddenAgents={hiddenAgents}
+            onUnhide={agents.toggleHidden}
+          />
+
+          {selectedAgent && (
+            <AgentDetail
+              agent={selectedAgent}
+              onClose={() => agents.selectAgent(null)}
+              onPrompt={(prompt) => agents.promptAgent(selectedAgent.id, prompt)}
+              onStop={() => agents.stopAgent(selectedAgent.id)}
+              onResume={() => agents.resumeAgent(selectedAgent.id)}
+            />
+          )}
+        </>
       )}
 
       {showSpawn && (

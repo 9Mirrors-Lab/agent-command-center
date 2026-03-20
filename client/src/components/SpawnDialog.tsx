@@ -1,5 +1,6 @@
-import type { SpawnConfig } from "@acc/shared";
-import { useState } from "react";
+import type { SpawnConfig, RuntimeType, MachineConfig } from "@acc/shared";
+import { RUNTIME_INFO } from "@acc/shared";
+import { useState, useEffect } from "react";
 
 interface Props {
   onSpawn: (config: SpawnConfig) => Promise<any>;
@@ -10,9 +11,25 @@ export default function SpawnDialog({ onSpawn, onClose }: Props) {
   const [prompt, setPrompt] = useState("");
   const [workDir, setWorkDir] = useState("~");
   const [name, setName] = useState("");
+  const [runtime, setRuntime] = useState<RuntimeType>("claude");
   const [model, setModel] = useState<"opus" | "sonnet" | "haiku">("sonnet");
   const [budget, setBudget] = useState("");
+  const [role, setRole] = useState<"standalone" | "coordinator">("standalone");
+  const [machine, setMachine] = useState("local");
+  const [machines, setMachines] = useState<MachineConfig[]>([{ name: "local" }]);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/machines")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.machines?.length) setMachines(data.machines);
+      })
+      .catch(() => {});
+  }, []);
+
+  const info = RUNTIME_INFO[runtime];
+  const isClaude = runtime === "claude";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +41,11 @@ export default function SpawnDialog({ onSpawn, onClose }: Props) {
         prompt: prompt.trim(),
         workDir: workDir.trim() || "~",
         name: name.trim() || undefined,
-        model,
-        budget: budget ? Number(budget) : undefined,
+        runtime,
+        model: isClaude ? model : undefined,
+        budget: isClaude && budget ? Number(budget) : undefined,
+        role: isClaude ? role : undefined,
+        machine: machine !== "local" ? machine : undefined,
       });
       onClose();
     } catch (err) {
@@ -44,6 +64,26 @@ export default function SpawnDialog({ onSpawn, onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          {/* Runtime selector */}
+          <Field label="Runtime">
+            <div className="flex gap-1">
+              {(Object.entries(RUNTIME_INFO) as [RuntimeType, typeof info][]).map(([key, rt]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setRuntime(key)}
+                  className={`flex-1 px-3 py-1.5 text-xs rounded transition-colors ${
+                    runtime === key
+                      ? "bg-accent text-bg font-medium"
+                      : "bg-bg border border-border text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  {rt.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
           <Field label="Prompt *">
             <textarea
               value={prompt}
@@ -73,29 +113,67 @@ export default function SpawnDialog({ onSpawn, onClose }: Props) {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Model">
+          {/* Machine selector (if more than just local) */}
+          {machines.length > 1 && (
+            <Field label="Machine">
               <select
-                value={model}
-                onChange={(e) => setModel(e.target.value as any)}
+                value={machine}
+                onChange={(e) => setMachine(e.target.value)}
                 className="w-full bg-bg border border-border rounded px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
               >
-                <option value="sonnet">Sonnet</option>
-                <option value="opus">Opus</option>
-                <option value="haiku">Haiku</option>
+                {machines.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name}{m.host ? ` (${m.host})` : ""}
+                  </option>
+                ))}
               </select>
             </Field>
-            <Field label="Budget (USD)">
-              <input
-                type="number"
-                step="0.1"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                placeholder="No limit"
-                className="w-full bg-bg border border-border rounded px-3 py-2 text-xs text-text-primary outline-none focus:border-accent placeholder:text-text-secondary"
-              />
-            </Field>
-          </div>
+          )}
+
+          {/* Claude-specific options */}
+          {isClaude && (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Model">
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value as any)}
+                    className="w-full bg-bg border border-border rounded px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                  >
+                    <option value="sonnet">Sonnet</option>
+                    <option value="opus">Opus</option>
+                    <option value="haiku">Haiku</option>
+                  </select>
+                </Field>
+                <Field label="Budget (USD)">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    placeholder="No limit"
+                    className="w-full bg-bg border border-border rounded px-3 py-2 text-xs text-text-primary outline-none focus:border-accent placeholder:text-text-secondary"
+                  />
+                </Field>
+                <Field label="Role">
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as any)}
+                    className="w-full bg-bg border border-border rounded px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                  >
+                    <option value="standalone">Standalone</option>
+                    <option value="coordinator">Coordinator</option>
+                  </select>
+                </Field>
+              </div>
+            </>
+          )}
+
+          {!isClaude && (
+            <div className="text-xs text-text-secondary bg-bg rounded px-3 py-2 border border-border">
+              {info.isMultiTurn ? "Multi-turn" : "One-shot"} mode. Model and budget options are Claude-specific.
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button

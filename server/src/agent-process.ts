@@ -1,15 +1,16 @@
 import { type Subprocess } from "bun";
 import { homedir } from "node:os";
-import type { SpawnConfig, AgentStatus, ToolActivity } from "@acc/shared";
-import { MAX_OUTPUT_LINES, MODEL_PRICING, DEFAULT_ALLOWED_TOOLS } from "@acc/shared";
+import type { SpawnConfig, AgentStatus, ToolActivity, RuntimeType, MachineConfig } from "@acc/shared";
+import { MAX_OUTPUT_LINES, MODEL_PRICING, RUNTIME_INFO } from "@acc/shared";
 import { MessageBus } from "./bus.js";
-import { parseStreamLine } from "./stream-parser.js";
+import { getRuntime } from "./runtimes/index.js";
 
 export class AgentProcess {
   readonly id: string;
   readonly sessionId: string;
   readonly config: SpawnConfig;
   readonly startTime: number;
+  readonly runtime: RuntimeType;
 
   status: AgentStatus = "active";
   tokens = { input: 0, output: 0 };
@@ -21,8 +22,9 @@ export class AgentProcess {
 
   private proc: Subprocess | null = null;
   private bus: MessageBus;
+  private machine?: MachineConfig;
 
-  constructor(id: string, sessionId: string, config: SpawnConfig, bus: MessageBus) {
+  constructor(id: string, sessionId: string, config: SpawnConfig, bus: MessageBus, machine?: MachineConfig) {
     this.id = id;
     this.sessionId = sessionId;
     this.config = config;
@@ -30,31 +32,13 @@ export class AgentProcess {
     this.startTime = Date.now();
     this.lastActivity = Date.now();
     this.currentTask = config.prompt.slice(0, 100);
+    this.runtime = config.runtime ?? "claude";
+    this.machine = machine;
   }
 
   async spawn(resumeSessionId?: string): Promise<void> {
-    const args: string[] = ["-p", this.config.prompt];
-
-    args.push("--output-format", "stream-json");
-    args.push("--verbose");
-    args.push("--session-id", resumeSessionId ?? this.sessionId);
-
-    if (resumeSessionId) {
-      args.push("--resume", resumeSessionId);
-    }
-
-    if (this.config.budget) {
-      args.push("--max-budget-usd", String(this.config.budget));
-    }
-
-    if (this.config.model) {
-      args.push("--model", this.config.model);
-    }
-
-    const tools = this.config.allowedTools ?? DEFAULT_ALLOWED_TOOLS;
-    for (const tool of tools) {
-      args.push("--allowedTools", tool);
-    }
+    const driver = getRuntime(this.runtime);
+    const runtimeInfo = RUNTIME_INFO[this.runtime];
 
     // Expand ~ to actual home directory
     let workDir = this.config.workDir;
@@ -62,18 +46,17 @@ export class AgentProcess {
       workDir = workDir.replace(/^~/, homedir());
     }
 
-    // Build clean env without CLAUDECODE
-    const env = { ...process.env };
-    delete env.CLAUDECODE;
+    // Build env via driver
+    const env = driver.buildEnv({ ...process.env }) as Record<string, string>;
 
-    // Verify claude binary exists on PATH
-    const claudePath = Bun.which("claude");
-    if (!claudePath) {
+    // Verify binary exists on PATH
+    const binaryPath = Bun.which(driver.binaryName);
+    if (!binaryPath) {
       this.status = "errored";
       this.bus.publish({
         type: "agent:text",
         agentId: this.id,
-        content: "[ERROR] 'claude' binary not found on PATH",
+        content: `[ERROR] '${driver.binaryName}' binary not found on PATH`,
         partial: false,
         timestamp: Date.now(),
       });
@@ -86,17 +69,45 @@ export class AgentProcess {
       return;
     }
 
-    this.proc = Bun.spawn(["claude", ...args], {
-      cwd: workDir,
-      stdout: "pipe",
-      stderr: "pipe",
-      env,
-    });
+    // Build args via driver
+    const args = driver.buildArgs(this.config, this.sessionId, resumeSessionId);
+
+    // Remote machine: wrap in SSH
+    if (this.machine?.host) {
+      const sshArgs: string[] = [];
+      if (this.machine.sshKey) {
+        sshArgs.push("-i", this.machine.sshKey.replace(/^~/, homedir()));
+      }
+      sshArgs.push("-o", "StrictHostKeyChecking=no");
+      sshArgs.push("-o", "BatchMode=yes");
+      const target = this.machine.user
+        ? `${this.machine.user}@${this.machine.host}`
+        : this.machine.host;
+      sshArgs.push(target);
+
+      // Build remote command — escape for shell
+      const remoteCmd = `cd ${this.config.workDir} && ${driver.binaryName} ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")}`;
+      sshArgs.push(remoteCmd);
+
+      this.proc = Bun.spawn(["ssh", ...sshArgs], {
+        stdout: "pipe",
+        stderr: "pipe",
+        env,
+      });
+    } else {
+      // Local spawn
+      this.proc = Bun.spawn([driver.binaryName, ...args], {
+        cwd: workDir,
+        stdout: "pipe",
+        stderr: "pipe",
+        env,
+      });
+    }
 
     this.status = "active";
     this.lastActivity = Date.now();
 
-    // Read stdout NDJSON stream
+    // Read stdout stream
     this.readStream();
 
     // Read stderr for debugging
@@ -120,6 +131,7 @@ export class AgentProcess {
   private async readStream(): Promise<void> {
     if (!this.proc?.stdout) return;
 
+    const driver = getRuntime(this.runtime);
     const reader = (this.proc.stdout as ReadableStream<Uint8Array>).getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -135,7 +147,7 @@ export class AgentProcess {
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          const msgs = parseStreamLine(line, this.id);
+          const msgs = driver.parseLine(line, this.id);
           for (const msg of msgs) {
             this.handleBusMessage(msg);
             this.bus.publish(msg);
@@ -198,9 +210,12 @@ export class AgentProcess {
       case "agent:tokens":
         this.tokens.input += msg.input;
         this.tokens.output += msg.output;
-        const model = this.config.model ?? "sonnet";
-        const pricing = MODEL_PRICING[model] ?? MODEL_PRICING.sonnet;
-        this.cost = this.tokens.input * pricing.input + this.tokens.output * pricing.output;
+        // Only calculate cost for runtimes with known pricing (Claude)
+        if (this.runtime === "claude") {
+          const model = this.config.model ?? "sonnet";
+          const pricing = MODEL_PRICING[model] ?? MODEL_PRICING.sonnet;
+          this.cost = this.tokens.input * pricing.input + this.tokens.output * pricing.output;
+        }
         break;
 
       case "agent:status":
@@ -237,6 +252,10 @@ export class AgentProcess {
       outputLines: this.outputLines.slice(-50),
       timeline: [],
       pendingApprovals: [],
+      runtime: this.runtime,
+      role: this.config.role ?? "standalone",
+      workerAssignment: this.config.workerAssignment,
+      childAgentIds: [],
     };
   }
 }

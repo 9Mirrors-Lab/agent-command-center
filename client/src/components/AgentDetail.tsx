@@ -13,9 +13,10 @@ interface Props {
   onPrompt: (prompt: string) => void;
   onStop: () => void;
   onResume: () => void;
+  fullHeight?: boolean;
 }
 
-export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume }: Props) {
+export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume, fullHeight }: Props) {
   useTick(1000);
   const [prompt, setPrompt] = useState("");
   const [rightPane, setRightPane] = useState<RightPane>("timeline");
@@ -49,7 +50,7 @@ export default function AgentDetail({ agent, onClose, onPrompt, onStop, onResume
   );
 
   return (
-    <div className="border-t border-border bg-surface">
+    <div className={`border-t border-border bg-surface ${fullHeight ? "flex-1 flex flex-col overflow-hidden" : ""}`}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <div className="flex items-center gap-3">

@@ -7,6 +7,8 @@ import { PtyManager } from "./pty-manager.js";
 import { ApprovalGate } from "./approval-gate.js";
 import { TimelineTracker } from "./timeline-tracker.js";
 import { ObserverAgent } from "./observer-agent.js";
+import { DelegationDetector } from "./delegation-detector.js";
+import { MachineRegistry } from "./machine-registry.js";
 import { handleRequest } from "./routes.js";
 import { existsSync } from "fs";
 import { join, extname } from "path";
@@ -15,13 +17,15 @@ const port = Number(process.env.ACC_PORT) || DEFAULT_PORT;
 
 // Initialize core components
 const bus = new MessageBus();
-const manager = new AgentManager(bus);
+const machineRegistry = new MachineRegistry();
+const manager = new AgentManager(bus, machineRegistry);
 const managerAgent = new ManagerAgent(bus, manager);
 const wsBridge = new WsBridge(bus, manager);
 const ptyManager = new PtyManager();
 const approvalGate = new ApprovalGate(bus);
 const timelineTracker = new TimelineTracker(bus);
 const observerAgent = new ObserverAgent(bus, manager, timelineTracker);
+const delegationDetector = new DelegationDetector(bus, manager);
 
 // Start manager agent if enabled (default: off, enable via API or env)
 if (process.env.ACC_MANAGER === "1") {

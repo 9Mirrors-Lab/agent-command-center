@@ -10,6 +10,7 @@ interface KeyboardActions {
   onBroadcast: () => void;
   onSelectIndex: (index: number) => void;
   onToggleManager: () => void;
+  onCycleView: () => void;
 }
 
 export function useKeyboard(actions: KeyboardActions) {
@@ -62,6 +63,10 @@ export function useKeyboard(actions: KeyboardActions) {
         case "m":
           e.preventDefault();
           actions.onToggleManager();
+          break;
+        case "v":
+          e.preventDefault();
+          actions.onCycleView();
           break;
         case "1":
         case "2":
