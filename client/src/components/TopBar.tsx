@@ -18,6 +18,7 @@ interface Props {
   onToggleManager: () => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  onOpenSettings: () => void;
 }
 
 const viewModeLabels: Record<ViewMode, string> = {
@@ -26,7 +27,7 @@ const viewModeLabels: Record<ViewMode, string> = {
   focus: "Focus",
 };
 
-export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager, viewMode, onViewModeChange }: Props) {
+export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager, viewMode, onViewModeChange, onOpenSettings }: Props) {
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-border">
       {/* Left: Title + connection */}
@@ -93,6 +94,17 @@ export default function TopBar({ stats, connected, filter, onFilterChange, onSpa
           className="bg-accent text-bg px-3 py-1 rounded text-xs font-medium hover:opacity-90 transition-opacity"
         >
           + Spawn Agent
+        </button>
+
+        <button
+          onClick={onOpenSettings}
+          className="px-2 py-1 text-text-secondary hover:text-text-primary transition-colors"
+          title="Settings"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
         </button>
       </div>
     </div>

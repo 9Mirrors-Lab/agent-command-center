@@ -1,6 +1,7 @@
 import type { SpawnConfig, RuntimeType, MachineConfig } from "@acc/shared";
 import { RUNTIME_INFO } from "@acc/shared";
 import { useState, useEffect } from "react";
+import { getServerUrl } from "../hooks/useBus";
 
 interface Props {
   onSpawn: (config: SpawnConfig) => Promise<any>;
@@ -20,7 +21,7 @@ export default function SpawnDialog({ onSpawn, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch("/api/machines")
+    fetch(`${getServerUrl()}/api/machines`)
       .then((r) => r.json())
       .then((data) => {
         if (data.machines?.length) setMachines(data.machines);

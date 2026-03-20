@@ -3,6 +3,36 @@ import type { BusMessage } from "@acc/shared";
 
 type MessageHandler = (msg: BusMessage | { type: "snapshot"; agents: any[]; stats: any }) => void;
 
+const STORAGE_KEY = "acc:serverUrl";
+const DEFAULT_URL = "http://localhost:4200";
+
+/** Get the configured server URL from localStorage */
+export function getServerUrl(): string {
+  return localStorage.getItem(STORAGE_KEY) || DEFAULT_URL;
+}
+
+/** Set the server URL in localStorage */
+export function setServerUrl(url: string): void {
+  // Normalize: remove trailing slash
+  const normalized = url.replace(/\/+$/, "");
+  localStorage.setItem(STORAGE_KEY, normalized);
+}
+
+/** Check if ACC has been configured (server URL set) */
+export function isConfigured(): boolean {
+  return localStorage.getItem("acc:configured") === "true";
+}
+
+/** Mark ACC as configured */
+export function markConfigured(): void {
+  localStorage.setItem("acc:configured", "true");
+}
+
+/** Convert HTTP URL to WebSocket URL */
+function toWsUrl(httpUrl: string): string {
+  return httpUrl.replace(/^http/, "ws") + "/ws";
+}
+
 export function useBus(onMessage: MessageHandler) {
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -16,15 +46,15 @@ export function useBus(onMessage: MessageHandler) {
   }, []);
 
   useEffect(() => {
+    if (!isConfigured()) return;
+
     let reconnectTimeout: ReturnType<typeof setTimeout>;
     let reconnectDelay = 1000;
 
     function connect() {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      // In dev, connect directly to the API server; in prod, use same host
-      const isDev = window.location.port === "5173";
-      const host = isDev ? window.location.hostname + ":4200" : window.location.host;
-      const ws = new WebSocket(`${protocol}//${host}/ws`);
+      const serverUrl = getServerUrl();
+      const wsUrl = toWsUrl(serverUrl);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {

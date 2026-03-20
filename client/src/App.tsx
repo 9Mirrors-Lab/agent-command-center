@@ -1,6 +1,7 @@
 import type { ViewMode } from "@acc/shared";
 import { useAgents } from "./hooks/useAgents";
 import { useKeyboard } from "./hooks/useKeyboard";
+import { isConfigured, getServerUrl } from "./hooks/useBus";
 import TopBar from "./components/TopBar";
 import ManagerPanel from "./components/ManagerPanel";
 import AgentGrid from "./components/AgentGrid";
@@ -14,6 +15,7 @@ import ApprovalQueue from "./components/ApprovalQueue";
 import ObserverPanel from "./components/ObserverPanel";
 import ConnectionStatus from "./components/ConnectionStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
+import SetupScreen from "./components/SetupScreen";
 import { useState, useMemo, useCallback, useRef } from "react";
 
 const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus"];
@@ -24,6 +26,7 @@ function AppContent() {
   const [managerEnabled, setManagerEnabled] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [showSettings, setShowSettings] = useState(false);
   const broadcastRef = useRef<HTMLButtonElement>(null);
 
   const selectedAgent = agents.selectedAgent
@@ -39,7 +42,7 @@ function AppContent() {
   const toggleManager = useCallback(async () => {
     const endpoint = managerEnabled ? "/api/manager/stop" : "/api/manager/start";
     try {
-      await fetch(endpoint, { method: "POST" });
+      await fetch(`${getServerUrl()}${endpoint}`, { method: "POST" });
       setManagerEnabled(!managerEnabled);
     } catch (err) {
       console.error("Manager toggle failed:", err);
@@ -51,6 +54,8 @@ function AppContent() {
     onEscape: () => {
       if (showSpawn) {
         setShowSpawn(false);
+      } else if (showSettings) {
+        setShowSettings(false);
       } else if (agents.selectedAgent) {
         agents.selectAgent(null);
       }
@@ -110,7 +115,7 @@ function AppContent() {
         return VIEW_CYCLE[(idx + 1) % VIEW_CYCLE.length];
       });
     },
-  }), [showSpawn, agents, focusedIndex, toggleManager]);
+  }), [showSpawn, showSettings, agents, focusedIndex, toggleManager]);
 
   useKeyboard(keyboardActions);
 
@@ -118,6 +123,18 @@ function AppContent() {
   const focusedId = focusedIndex >= 0 && focusedIndex < agents.filteredAgents.length
     ? agents.filteredAgents[focusedIndex].id
     : null;
+
+  if (showSettings) {
+    return (
+      <SetupScreen
+        onComplete={() => {
+          setShowSettings(false);
+          window.location.reload();
+        }}
+        isReconfigure
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -131,6 +148,7 @@ function AppContent() {
         onToggleManager={toggleManager}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {agents.pendingApprovals.length > 0 && (
@@ -224,6 +242,16 @@ function AppContent() {
 }
 
 export default function App() {
+  const [configured, setConfigured] = useState(isConfigured());
+
+  if (!configured) {
+    return (
+      <SetupScreen
+        onComplete={() => setConfigured(true)}
+      />
+    );
+  }
+
   return (
     <ErrorBoundary>
       <AppContent />

@@ -1,7 +1,7 @@
 import { useReducer, useCallback } from "react";
 import type { AgentState, BusMessage, SpawnConfig, AgentSummary, PendingApproval, ObserverSuggestion } from "@acc/shared";
 import { MODEL_PRICING } from "@acc/shared";
-import { useBus } from "./useBus";
+import { useBus, getServerUrl } from "./useBus";
 
 interface State {
   agents: Map<string, AgentState>;
@@ -283,7 +283,7 @@ export function useAgents() {
   });
 
   const spawnAgent = useCallback(async (config: SpawnConfig) => {
-    const res = await fetch("/api/agents", {
+    const res = await fetch(`${getServerUrl()}/api/agents`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
@@ -308,22 +308,22 @@ export function useAgents() {
   }, [send]);
 
   const acceptApproval = useCallback(async (approvalId: string) => {
-    await fetch(`/api/approvals/${approvalId}/accept`, { method: "POST" });
+    await fetch(`${getServerUrl()}/api/approvals/${approvalId}/accept`, { method: "POST" });
   }, []);
 
   const rejectApproval = useCallback(async (approvalId: string) => {
-    await fetch(`/api/approvals/${approvalId}/reject`, { method: "POST" });
+    await fetch(`${getServerUrl()}/api/approvals/${approvalId}/reject`, { method: "POST" });
   }, []);
 
   const acceptAllApprovals = useCallback(async () => {
-    await fetch("/api/approvals/accept-all", { method: "POST" });
+    await fetch(`${getServerUrl()}/api/approvals/accept-all`, { method: "POST" });
   }, []);
 
   const applySuggestion = useCallback(async (suggestionId: string) => {
     // Optimistically mark as applied
     dispatch({ type: "APPLY_SUGGESTION", suggestionId });
     try {
-      await fetch(`/api/observer/suggestions/${suggestionId}/apply`, { method: "POST" });
+      await fetch(`${getServerUrl()}/api/observer/suggestions/${suggestionId}/apply`, { method: "POST" });
     } catch (err) {
       console.error("Failed to apply suggestion:", err);
     }
