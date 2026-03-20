@@ -16,6 +16,7 @@ import ObserverPanel from "./components/ObserverPanel";
 import ConnectionStatus from "./components/ConnectionStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SetupScreen from "./components/SetupScreen";
+import DetectedSessions from "./components/DetectedSessions";
 import { useState, useMemo, useCallback, useRef } from "react";
 
 const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus"];
@@ -27,6 +28,7 @@ function AppContent() {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [showSettings, setShowSettings] = useState(false);
+  const [showDetected, setShowDetected] = useState(true);
   const broadcastRef = useRef<HTMLButtonElement>(null);
 
   const selectedAgent = agents.selectedAgent
@@ -175,6 +177,10 @@ function AppContent() {
         onApply={agents.applySuggestion}
         onDismiss={agents.dismissSuggestion}
       />
+
+      {showDetected && (
+        <DetectedSessions onDismiss={() => setShowDetected(false)} />
+      )}
 
       <BroadcastBar onBroadcast={agents.broadcastMessage} ref={broadcastRef} />
 

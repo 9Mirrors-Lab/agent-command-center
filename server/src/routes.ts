@@ -1,6 +1,7 @@
 import type { SpawnConfig } from "@acc/shared";
 import { AgentManager } from "./agent-manager.js";
 import { MessageBus } from "./bus.js";
+import { detectRunningSessions } from "./session-detector.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -89,6 +90,16 @@ export function handleRequest(
   // GET /api/machines — list available machines
   if (path === "/api/machines" && req.method === "GET") {
     return json({ machines: manager.getMachineRegistry().listMachines() });
+  }
+
+  // GET /api/sessions/detect — detect running Claude sessions on this machine
+  if (path === "/api/sessions/detect" && req.method === "GET") {
+    try {
+      const sessions = detectRunningSessions();
+      return json({ sessions });
+    } catch (err) {
+      return json({ sessions: [], error: String(err) });
+    }
   }
 
   return null; // Not an API route
