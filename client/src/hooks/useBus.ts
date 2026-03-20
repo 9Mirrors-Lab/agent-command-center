@@ -28,6 +28,43 @@ export function markConfigured(): void {
   localStorage.setItem("acc:configured", "true");
 }
 
+/**
+ * Try to auto-configure by detecting if the server is reachable at the
+ * current origin (same-host serving) or default localhost:4200.
+ * Returns true if auto-configured successfully.
+ */
+export async function tryAutoConfig(): Promise<boolean> {
+  // Already configured
+  if (isConfigured()) return true;
+
+  // Try same-origin first (server serves the client at :4200)
+  const sameOrigin = window.location.origin;
+  // Try Vite dev mode (client on :5173, server on :4200)
+  const devUrl = `http://${window.location.hostname}:4200`;
+  // Default
+  const candidates = [sameOrigin, devUrl, DEFAULT_URL];
+  // Deduplicate
+  const unique = [...new Set(candidates)];
+
+  for (const url of unique) {
+    try {
+      const res = await fetch(`${url}/api/agents`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.agents !== undefined) {
+          setServerUrl(url);
+          markConfigured();
+          return true;
+        }
+      }
+    } catch {}
+  }
+
+  return false;
+}
+
 /** Convert HTTP URL to WebSocket URL */
 function toWsUrl(httpUrl: string): string {
   return httpUrl.replace(/^http/, "ws") + "/ws";

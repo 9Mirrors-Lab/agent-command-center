@@ -1,7 +1,7 @@
 import type { ViewMode } from "@acc/shared";
 import { useAgents } from "./hooks/useAgents";
 import { useKeyboard } from "./hooks/useKeyboard";
-import { isConfigured, getServerUrl } from "./hooks/useBus";
+import { isConfigured, getServerUrl, tryAutoConfig } from "./hooks/useBus";
 import TopBar from "./components/TopBar";
 import ManagerPanel from "./components/ManagerPanel";
 import AgentGrid from "./components/AgentGrid";
@@ -17,7 +17,7 @@ import ConnectionStatus from "./components/ConnectionStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SetupScreen from "./components/SetupScreen";
 import DetectedSessions from "./components/DetectedSessions";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus"];
 
@@ -249,6 +249,25 @@ function AppContent() {
 
 export default function App() {
   const [configured, setConfigured] = useState(isConfigured());
+  const [checking, setChecking] = useState(!isConfigured());
+
+  // Try auto-detecting the server on first load
+  useEffect(() => {
+    if (configured) return;
+    tryAutoConfig().then((ok) => {
+      if (ok) setConfigured(true);
+      setChecking(false);
+    });
+  }, [configured]);
+
+  // Show nothing while auto-detecting (< 2s)
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <div className="text-sm text-text-secondary">Connecting...</div>
+      </div>
+    );
+  }
 
   if (!configured) {
     return (
