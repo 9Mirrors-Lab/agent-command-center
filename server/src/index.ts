@@ -9,6 +9,8 @@ import { TimelineTracker } from "./timeline-tracker.js";
 import { ObserverAgent } from "./observer-agent.js";
 import { DelegationDetector } from "./delegation-detector.js";
 import { MachineRegistry } from "./machine-registry.js";
+import { LearningsStore } from "./learnings-store.js";
+import { McpBridge } from "./mcp-bridge.js";
 import { handleRequest } from "./routes.js";
 import { existsSync } from "fs";
 import { join, extname } from "path";
@@ -26,6 +28,8 @@ const approvalGate = new ApprovalGate(bus);
 const timelineTracker = new TimelineTracker(bus);
 const observerAgent = new ObserverAgent(bus, manager, timelineTracker);
 const delegationDetector = new DelegationDetector(bus, manager);
+const learningsStore = new LearningsStore(bus);
+const mcpBridge = new McpBridge();
 
 // Start manager agent if enabled (default: off, enable via API or env)
 if (process.env.ACC_MANAGER === "1") {
@@ -42,7 +46,7 @@ bus.subscribe((msg) => {
 
 const server = Bun.serve({
   port,
-  fetch(req, server) {
+  async fetch(req, server) {
     const url = new URL(req.url);
 
     // Terminal WebSocket upgrade: /ws/terminal/:agentId
@@ -68,7 +72,7 @@ const server = Bun.serve({
     }
 
     // REST API
-    const apiResponse = handleRequest(req, manager, bus);
+    const apiResponse = await handleRequest(req, manager, bus, learningsStore, mcpBridge);
     if (apiResponse) return apiResponse;
 
     // Manager agent toggle

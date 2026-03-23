@@ -19,6 +19,8 @@ interface Props {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onOpenSettings: () => void;
+  tradingEnabled: boolean;
+  onToggleTrading: () => void;
 }
 
 const viewModeLabels: Record<ViewMode, string> = {
@@ -27,7 +29,7 @@ const viewModeLabels: Record<ViewMode, string> = {
   focus: "Focus",
 };
 
-export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager, viewMode, onViewModeChange, onOpenSettings }: Props) {
+export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager, viewMode, onViewModeChange, onOpenSettings, tradingEnabled, onToggleTrading }: Props) {
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-border">
       {/* Left: Title + connection */}
@@ -87,6 +89,17 @@ export default function TopBar({ stats, connected, filter, onFilterChange, onSpa
           }`}
         >
           Manager {managerEnabled ? "ON" : "OFF"}
+        </button>
+
+        <button
+          onClick={onToggleTrading}
+          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+            tradingEnabled
+              ? "bg-success/20 text-success hover:bg-success/30"
+              : "bg-bg text-text-secondary hover:text-text-primary border border-border"
+          }`}
+        >
+          Trading {tradingEnabled ? "ON" : "OFF"}
         </button>
 
         <button

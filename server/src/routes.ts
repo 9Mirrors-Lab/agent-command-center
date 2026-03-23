@@ -1,7 +1,9 @@
-import type { SpawnConfig } from "@acc/shared";
+import type { SpawnConfig, LearningSource, LearningCategory } from "@acc/shared";
 import { AgentManager } from "./agent-manager.js";
 import { MessageBus } from "./bus.js";
 import { detectRunningSessions } from "./session-detector.js";
+import { LearningsStore } from "./learnings-store.js";
+import { McpBridge } from "./mcp-bridge.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -16,11 +18,13 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-export function handleRequest(
+export async function handleRequest(
   req: Request,
   manager: AgentManager,
-  bus: MessageBus
-): Response | Promise<Response> | null {
+  bus: MessageBus,
+  learningsStore?: LearningsStore,
+  mcpBridge?: McpBridge,
+): Promise<Response | null> {
   const url = new URL(req.url);
   const path = url.pathname;
 
@@ -102,6 +106,57 @@ export function handleRequest(
     }
   }
 
+  // ── Learnings ──
+  if (path === "/api/learnings" && req.method === "GET" && learningsStore) {
+    return json({ learnings: learningsStore.getAll() });
+  }
+  if (path === "/api/learnings" && req.method === "POST" && learningsStore) {
+    return handleAddLearning(req, learningsStore);
+  }
+  const learningDeleteMatch = path.match(/^\/api\/learnings\/([^/]+)$/);
+  if (learningDeleteMatch && req.method === "DELETE" && learningsStore) {
+    learningsStore.remove(learningDeleteMatch[1]);
+    return json({ ok: true });
+  }
+
+  // ── Trading (MCP Bridge) ──
+  if (path === "/api/trading/available" && req.method === "GET") {
+    if (!mcpBridge) return json({ available: false });
+    try {
+      const available = await mcpBridge.isAvailable();
+      return json({ available });
+    } catch { return json({ available: false }); }
+  }
+  if (path === "/api/trading/account" && req.method === "GET" && mcpBridge) {
+    return handleMcpCall(mcpBridge, "account");
+  }
+  if (path === "/api/trading/status" && req.method === "GET" && mcpBridge) {
+    return handleMcpCall(mcpBridge, "status");
+  }
+  if (path === "/api/trading/apex" && req.method === "GET" && mcpBridge) {
+    return handleMcpCall(mcpBridge, "apex_status");
+  }
+  if (path === "/api/trading/journal" && req.method === "GET" && mcpBridge) {
+    return handleMcpCall(mcpBridge, "trade_journal");
+  }
+  if (path === "/api/trading/strategies" && req.method === "GET" && mcpBridge) {
+    return handleMcpCall(mcpBridge, "strategies");
+  }
+  if (path === "/api/trading/run" && req.method === "POST" && mcpBridge) {
+    return handleTradingAction(req, mcpBridge, "run_strategy");
+  }
+  if (path === "/api/trading/reflect" && req.method === "POST" && mcpBridge) {
+    return handleMcpCall(mcpBridge, "reflect_run");
+  }
+
+  // ── MCP Tools ──
+  if (path === "/api/mcp/tools" && req.method === "GET" && mcpBridge) {
+    return json({ tools: mcpBridge.getTools() });
+  }
+  if (path === "/api/mcp/call" && req.method === "POST" && mcpBridge) {
+    return handleMcpToolCall(req, mcpBridge);
+  }
+
   return null; // Not an API route
 }
 
@@ -141,6 +196,57 @@ async function handlePrompt(req: Request, agentId: string, bus: MessageBus): Pro
       timestamp: Date.now(),
     });
     return json({ ok: true });
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
+}
+
+async function handleAddLearning(req: Request, store: LearningsStore): Promise<Response> {
+  try {
+    const body = await req.json() as {
+      agentId?: string; source?: LearningSource; category?: LearningCategory;
+      title?: string; detail?: string; confidence?: number;
+    };
+    if (!body.title || !body.detail) return json({ error: "title and detail required" }, 400);
+    const learning = store.add({
+      agentId: body.agentId ?? "",
+      source: body.source ?? "user",
+      category: body.category ?? "insight",
+      title: body.title,
+      detail: body.detail,
+      confidence: body.confidence ?? 0.7,
+    });
+    return json({ learning, ok: true }, 201);
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
+}
+
+async function handleMcpCall(bridge: McpBridge, tool: string): Promise<Response> {
+  try {
+    const data = await bridge.callTool(tool);
+    return json({ data });
+  } catch (err) {
+    return json({ error: String(err), data: null }, 500);
+  }
+}
+
+async function handleTradingAction(req: Request, bridge: McpBridge, tool: string): Promise<Response> {
+  try {
+    const body = await req.json() as Record<string, any>;
+    const data = await bridge.callTool(tool, body);
+    return json({ data, ok: true });
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
+}
+
+async function handleMcpToolCall(req: Request, bridge: McpBridge): Promise<Response> {
+  try {
+    const { tool, args } = await req.json() as { tool: string; args?: Record<string, any> };
+    if (!tool) return json({ error: "tool name required" }, 400);
+    const data = await bridge.callTool(tool, args);
+    return json({ data, ok: true });
   } catch (err) {
     return json({ error: String(err) }, 500);
   }

@@ -1,5 +1,5 @@
-import { useReducer, useCallback } from "react";
-import type { AgentState, BusMessage, SpawnConfig, AgentSummary, PendingApproval, ObserverSuggestion } from "@acc/shared";
+import { useReducer, useCallback, useEffect } from "react";
+import type { AgentState, BusMessage, SpawnConfig, AgentSummary, PendingApproval, ObserverSuggestion, Learning, LearningCategory } from "@acc/shared";
 import { MODEL_PRICING } from "@acc/shared";
 import { useBus, getServerUrl } from "./useBus";
 
@@ -18,6 +18,7 @@ interface State {
   alerts: Array<{ agentId: string; alert: string; severity: string; timestamp: number }>;
   pendingApprovals: PendingApproval[];
   observerSuggestions: ObserverSuggestion[];
+  learnings: Learning[];
   filter: "all" | "active" | "idle" | "stopped";
   hiddenAgents: Set<string>;
   selectedAgent: string | null;
@@ -30,7 +31,8 @@ type Action =
   | { type: "TOGGLE_HIDDEN"; agentId: string }
   | { type: "SELECT_AGENT"; agentId: string | null }
   | { type: "DISMISS_SUGGESTION"; suggestionId: string }
-  | { type: "APPLY_SUGGESTION"; suggestionId: string };
+  | { type: "APPLY_SUGGESTION"; suggestionId: string }
+  | { type: "SET_LEARNINGS"; learnings: Learning[] };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -207,6 +209,22 @@ function reducer(state: State, action: Action): State {
               s.id === msg.suggestionId ? { ...s, applied: true } : s
             ),
           };
+
+        case "learning:added":
+          return {
+            ...state,
+            agents,
+            learnings: [...state.learnings, msg.learning],
+          };
+
+        case "learning:updated":
+          return {
+            ...state,
+            agents,
+            learnings: state.learnings.map((l) =>
+              l.id === msg.learningId ? { ...l, confidence: msg.confidence, appliedCount: msg.appliedCount } : l
+            ),
+          };
       }
 
       // Recalculate stats
@@ -253,6 +271,9 @@ function reducer(state: State, action: Action): State {
         ),
       };
 
+    case "SET_LEARNINGS":
+      return { ...state, learnings: action.learnings };
+
     default:
       return state;
   }
@@ -266,6 +287,7 @@ const initialState: State = {
   alerts: [],
   pendingApprovals: [],
   observerSuggestions: [],
+  learnings: [],
   filter: "all",
   hiddenAgents: new Set(),
   selectedAgent: null,
@@ -333,6 +355,28 @@ export function useAgents() {
     dispatch({ type: "DISMISS_SUGGESTION", suggestionId });
   }, []);
 
+  const addLearning = useCallback(async (params: { title: string; detail: string; category: LearningCategory }) => {
+    try {
+      await fetch(`${getServerUrl()}/api/learnings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+    } catch (err) {
+      console.error("Failed to add learning:", err);
+    }
+  }, []);
+
+  // Fetch initial learnings on mount
+  useEffect(() => {
+    fetch(`${getServerUrl()}/api/learnings`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.learnings) dispatch({ type: "SET_LEARNINGS", learnings: data.learnings });
+      })
+      .catch(() => {});
+  }, []);
+
   const filteredAgents = Array.from(state.agents.values()).filter((a) => {
     if (state.hiddenAgents.has(a.id)) return false;
     if (state.filter === "all") return true;
@@ -354,6 +398,7 @@ export function useAgents() {
     acceptAllApprovals,
     applySuggestion,
     dismissSuggestion,
+    addLearning,
     setFilter: (filter: State["filter"]) => dispatch({ type: "SET_FILTER", filter }),
     toggleHidden: (id: string) => dispatch({ type: "TOGGLE_HIDDEN", agentId: id }),
     selectAgent: (id: string | null) => dispatch({ type: "SELECT_AGENT", agentId: id }),

@@ -130,6 +130,64 @@ export interface ObserverSuggestion {
   applied: boolean;
 }
 
+// ── Learnings ──
+export type LearningSource = "reflect" | "observer" | "manager" | "user";
+export type LearningCategory = "pattern" | "mistake" | "optimization" | "insight";
+
+export interface Learning {
+  id: string;
+  agentId: string;
+  source: LearningSource;
+  category: LearningCategory;
+  title: string;
+  detail: string;
+  confidence: number;
+  createdAt: number;
+  appliedCount: number;
+}
+
+// ── Trading Types ──
+export interface TradingAccount {
+  equity: number;
+  balance: number;
+  margin: number;
+  unrealizedPnl: number;
+}
+
+export interface TradingPosition {
+  symbol: string;
+  side: "long" | "short";
+  size: number;
+  entryPrice: number;
+  markPrice: number;
+  unrealizedPnl: number;
+  leverage: number;
+}
+
+export interface TradeEntry {
+  timestamp: number;
+  symbol: string;
+  side: "buy" | "sell";
+  size: number;
+  price: number;
+  pnl?: number;
+  strategy: string;
+}
+
+export interface StrategyStatus {
+  name: string;
+  running: boolean;
+  pnl: number;
+  trades: number;
+  uptime?: number;
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  group: "fast" | "action" | "self-improvement";
+}
+
 // ── Bus Messages ──
 export type BusMessage =
   // Agent lifecycle
@@ -157,6 +215,9 @@ export type BusMessage =
   // Observer suggestions
   | { type: "observer:suggestion"; suggestion: ObserverSuggestion; timestamp: number }
   | { type: "observer:apply"; suggestionId: string; timestamp: number }
+  // Learnings
+  | { type: "learning:added"; learning: Learning; timestamp: number }
+  | { type: "learning:updated"; learningId: string; confidence: number; appliedCount: number; timestamp: number }
   // Delegation
   | { type: "agent:delegate"; agentId: string; task: string; model?: string; runtime?: RuntimeType; timestamp: number }
   | { type: "agent:worker-result"; agentId: string; parentId: string; summary: string; timestamp: number }

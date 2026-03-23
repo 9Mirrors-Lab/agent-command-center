@@ -17,6 +17,9 @@ import ConnectionStatus from "./components/ConnectionStatus";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SetupScreen from "./components/SetupScreen";
 import DetectedSessions from "./components/DetectedSessions";
+import LearningsPanel from "./components/LearningsPanel";
+import TradingPanel from "./components/TradingPanel";
+import McpToolsPanel from "./components/McpToolsPanel";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus"];
@@ -29,6 +32,7 @@ function AppContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [showSettings, setShowSettings] = useState(false);
   const [showDetected, setShowDetected] = useState(true);
+  const [tradingEnabled, setTradingEnabled] = useState(false);
   const broadcastRef = useRef<HTMLButtonElement>(null);
 
   const selectedAgent = agents.selectedAgent
@@ -151,6 +155,8 @@ function AppContent() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onOpenSettings={() => setShowSettings(true)}
+        tradingEnabled={tradingEnabled}
+        onToggleTrading={() => setTradingEnabled(!tradingEnabled)}
       />
 
       {agents.pendingApprovals.length > 0 && (
@@ -181,6 +187,15 @@ function AppContent() {
       {showDetected && (
         <DetectedSessions onDismiss={() => setShowDetected(false)} />
       )}
+
+      <TradingPanel enabled={tradingEnabled} />
+
+      <LearningsPanel
+        learnings={agents.learnings}
+        onAdd={agents.addLearning}
+      />
+
+      <McpToolsPanel visible={tradingEnabled} />
 
       <BroadcastBar onBroadcast={agents.broadcastMessage} ref={broadcastRef} />
 
