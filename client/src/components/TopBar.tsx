@@ -27,6 +27,8 @@ const viewModeLabels: Record<ViewMode, string> = {
   grid: "Grid",
   pipeline: "Pipeline",
   focus: "Focus",
+  activity: "Activity",
+  graph: "Graph",
 };
 
 export default function TopBar({ stats, connected, filter, onFilterChange, onSpawn, managerEnabled, onToggleManager, viewMode, onViewModeChange, onOpenSettings, tradingEnabled, onToggleTrading }: Props) {
@@ -54,7 +56,7 @@ export default function TopBar({ stats, connected, filter, onFilterChange, onSpa
       <div className="flex items-center gap-2">
         {/* View mode toggle */}
         <div className="flex bg-bg rounded border border-border">
-          {(["grid", "pipeline", "focus"] as ViewMode[]).map((mode) => (
+          {(["grid", "pipeline", "focus", "activity", "graph"] as ViewMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => onViewModeChange(mode)}

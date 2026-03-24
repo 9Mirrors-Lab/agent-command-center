@@ -4,6 +4,7 @@ import { MessageBus } from "./bus.js";
 import { detectRunningSessions } from "./session-detector.js";
 import { LearningsStore } from "./learnings-store.js";
 import { McpBridge } from "./mcp-bridge.js";
+import { ActivityLog } from "./activity-log.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +25,7 @@ export async function handleRequest(
   bus: MessageBus,
   learningsStore?: LearningsStore,
   mcpBridge?: McpBridge,
+  activityLog?: ActivityLog,
 ): Promise<Response | null> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -155,6 +157,17 @@ export async function handleRequest(
   }
   if (path === "/api/mcp/call" && req.method === "POST" && mcpBridge) {
     return handleMcpToolCall(req, mcpBridge);
+  }
+
+  // ── Activity Log ──
+  if (path === "/api/activity" && req.method === "GET" && activityLog) {
+    const since = url.searchParams.get("since");
+    const limit = url.searchParams.get("limit");
+    const entries = activityLog.getEntries(
+      since ? Number(since) : undefined,
+      limit ? Number(limit) : 200,
+    );
+    return json({ entries });
   }
 
   return null; // Not an API route

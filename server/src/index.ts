@@ -11,6 +11,7 @@ import { DelegationDetector } from "./delegation-detector.js";
 import { MachineRegistry } from "./machine-registry.js";
 import { LearningsStore } from "./learnings-store.js";
 import { McpBridge } from "./mcp-bridge.js";
+import { ActivityLog } from "./activity-log.js";
 import { handleRequest } from "./routes.js";
 import { existsSync } from "fs";
 import { join, extname } from "path";
@@ -30,6 +31,7 @@ const observerAgent = new ObserverAgent(bus, manager, timelineTracker);
 const delegationDetector = new DelegationDetector(bus, manager);
 const learningsStore = new LearningsStore(bus);
 const mcpBridge = new McpBridge();
+const activityLog = new ActivityLog(bus, manager);
 
 // Start manager agent if enabled (default: off, enable via API or env)
 if (process.env.ACC_MANAGER === "1") {
@@ -72,7 +74,7 @@ const server = Bun.serve({
     }
 
     // REST API
-    const apiResponse = await handleRequest(req, manager, bus, learningsStore, mcpBridge);
+    const apiResponse = await handleRequest(req, manager, bus, learningsStore, mcpBridge, activityLog);
     if (apiResponse) return apiResponse;
 
     // Manager agent toggle
@@ -256,7 +258,7 @@ process.on("SIGTERM", shutdown);
 
 console.log(`
   ╔═══════════════════════════════════════╗
-  ║       Agent Command Center v0.1       ║
+  ║       Agent Command Center v0.2       ║
   ╠═══════════════════════════════════════╣
   ║  API:  http://localhost:${port}          ║
   ║  WS:   ws://localhost:${port}/ws         ║

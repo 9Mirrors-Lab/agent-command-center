@@ -62,7 +62,29 @@ export interface MachineConfig {
 }
 
 // ── View Mode ──
-export type ViewMode = "grid" | "pipeline" | "focus";
+export type ViewMode = "grid" | "pipeline" | "focus" | "activity" | "graph";
+
+// ── Activity Audit Trail ──
+export type ActivityKind =
+  | "tool"
+  | "decision"
+  | "phase"
+  | "error"
+  | "spawn"
+  | "stop"
+  | "approval"
+  | "delegation"
+  | "learning";
+
+export interface ActivityEntry {
+  id: string;
+  agentId: string;
+  agentName: string;
+  kind: ActivityKind;
+  summary: string;
+  detail?: string;
+  timestamp: number;
+}
 
 export interface ToolActivity {
   tool: string;

@@ -11,6 +11,7 @@ interface KeyboardActions {
   onSelectIndex: (index: number) => void;
   onToggleManager: () => void;
   onCycleView: () => void;
+  onActivityView: () => void;
 }
 
 export function useKeyboard(actions: KeyboardActions) {
@@ -67,6 +68,10 @@ export function useKeyboard(actions: KeyboardActions) {
         case "v":
           e.preventDefault();
           actions.onCycleView();
+          break;
+        case "a":
+          e.preventDefault();
+          actions.onActivityView();
           break;
         case "1":
         case "2":

@@ -8,6 +8,9 @@ import AgentGrid from "./components/AgentGrid";
 import AgentDetail from "./components/AgentDetail";
 import PipelineView from "./components/PipelineView";
 import FocusView from "./components/FocusView";
+import ActivityFeed from "./components/ActivityFeed";
+import ReplayBar, { getAgentsAtTimestamp } from "./components/ReplayBar";
+import WorkspaceGraph from "./components/WorkspaceGraph";
 import SpawnDialog from "./components/SpawnDialog";
 import BroadcastBar from "./components/BroadcastBar";
 import HiddenAgentsBar from "./components/HiddenAgentsBar";
@@ -22,7 +25,7 @@ import TradingPanel from "./components/TradingPanel";
 import McpToolsPanel from "./components/McpToolsPanel";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
-const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus"];
+const VIEW_CYCLE: ViewMode[] = ["grid", "pipeline", "focus", "activity", "graph"];
 
 function AppContent() {
   const agents = useAgents();
@@ -33,6 +36,7 @@ function AppContent() {
   const [showSettings, setShowSettings] = useState(false);
   const [showDetected, setShowDetected] = useState(true);
   const [tradingEnabled, setTradingEnabled] = useState(false);
+  const [replayState, setReplayState] = useState({ enabled: false, timestamp: Date.now(), playing: false });
   const broadcastRef = useRef<HTMLButtonElement>(null);
 
   const selectedAgent = agents.selectedAgent
@@ -121,13 +125,22 @@ function AppContent() {
         return VIEW_CYCLE[(idx + 1) % VIEW_CYCLE.length];
       });
     },
+    onActivityView: () => setViewMode("activity"),
   }), [showSpawn, showSettings, agents, focusedIndex, toggleManager]);
 
   useKeyboard(keyboardActions);
 
+  // Compute display agents (apply replay filtering if active)
+  const displayAgents = useMemo(() => {
+    if (replayState.enabled) {
+      return getAgentsAtTimestamp(agents.filteredAgents, replayState.timestamp);
+    }
+    return agents.filteredAgents;
+  }, [agents.filteredAgents, replayState.enabled, replayState.timestamp]);
+
   // Sync focusedIndex with selectedAgent
-  const focusedId = focusedIndex >= 0 && focusedIndex < agents.filteredAgents.length
-    ? agents.filteredAgents[focusedIndex].id
+  const focusedId = focusedIndex >= 0 && focusedIndex < displayAgents.length
+    ? displayAgents[focusedIndex].id
     : null;
 
   if (showSettings) {
@@ -202,7 +215,7 @@ function AppContent() {
       {/* Main content area — switches based on view mode */}
       {viewMode === "grid" && (
         <AgentGrid
-          agents={agents.filteredAgents}
+          agents={displayAgents}
           selectedId={agents.selectedAgent}
           focusedId={focusedId}
           onSelect={agents.selectAgent}
@@ -214,7 +227,7 @@ function AppContent() {
 
       {viewMode === "pipeline" && (
         <PipelineView
-          agents={agents.filteredAgents}
+          agents={displayAgents}
           selectedId={agents.selectedAgent}
           onSelect={agents.selectAgent}
         />
@@ -223,7 +236,7 @@ function AppContent() {
       {viewMode === "focus" && (
         <FocusView
           agent={selectedAgent}
-          agents={agents.filteredAgents}
+          agents={displayAgents}
           onSelect={agents.selectAgent}
           onPrompt={agents.promptAgent}
           onStop={agents.stopAgent}
@@ -231,7 +244,26 @@ function AppContent() {
         />
       )}
 
-      {viewMode !== "focus" && (
+      {viewMode === "activity" && (
+        <ActivityFeed
+          agents={agents.agents}
+          onSelectAgent={(id) => {
+            agents.selectAgent(id);
+            setViewMode("grid");
+          }}
+        />
+      )}
+
+      {viewMode === "graph" && (
+        <WorkspaceGraph
+          agents={displayAgents}
+          learnings={agents.learnings}
+          selectedId={agents.selectedAgent}
+          onSelect={agents.selectAgent}
+        />
+      )}
+
+      {viewMode !== "focus" && viewMode !== "activity" && (
         <>
           <HiddenAgentsBar
             hiddenAgents={hiddenAgents}
@@ -249,6 +281,13 @@ function AppContent() {
           )}
         </>
       )}
+
+      {/* Replay Bar — docked at bottom */}
+      <ReplayBar
+        agents={agents.filteredAgents}
+        replayState={replayState}
+        onReplayChange={setReplayState}
+      />
 
       {showSpawn && (
         <SpawnDialog
