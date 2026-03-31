@@ -12,6 +12,7 @@ import { MachineRegistry } from "./machine-registry.js";
 import { LearningsStore } from "./learnings-store.js";
 import { McpBridge } from "./mcp-bridge.js";
 import { ActivityLog } from "./activity-log.js";
+import { StrategyRegistry } from "./strategy-registry.js";
 import { handleRequest } from "./routes.js";
 import { existsSync } from "fs";
 import { join, extname } from "path";
@@ -32,6 +33,7 @@ const delegationDetector = new DelegationDetector(bus, manager);
 const learningsStore = new LearningsStore(bus);
 const mcpBridge = new McpBridge();
 const activityLog = new ActivityLog(bus, manager);
+const strategyRegistry = new StrategyRegistry();
 
 // Start manager agent if enabled (default: off, enable via API or env)
 if (process.env.ACC_MANAGER === "1") {
@@ -74,7 +76,7 @@ const server = Bun.serve({
     }
 
     // REST API
-    const apiResponse = await handleRequest(req, manager, bus, learningsStore, mcpBridge, activityLog);
+    const apiResponse = await handleRequest(req, manager, bus, learningsStore, mcpBridge, activityLog, strategyRegistry);
     if (apiResponse) return apiResponse;
 
     // Manager agent toggle

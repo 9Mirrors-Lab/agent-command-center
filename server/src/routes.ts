@@ -5,6 +5,7 @@ import { detectRunningSessions } from "./session-detector.js";
 import { LearningsStore } from "./learnings-store.js";
 import { McpBridge } from "./mcp-bridge.js";
 import { ActivityLog } from "./activity-log.js";
+import type { StrategyRegistry } from "./strategy-registry.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,7 @@ export async function handleRequest(
   learningsStore?: LearningsStore,
   mcpBridge?: McpBridge,
   activityLog?: ActivityLog,
+  strategyRegistry?: StrategyRegistry,
 ): Promise<Response | null> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -119,6 +121,46 @@ export async function handleRequest(
   if (learningDeleteMatch && req.method === "DELETE" && learningsStore) {
     learningsStore.remove(learningDeleteMatch[1]);
     return json({ ok: true });
+  }
+
+  // ── Strategy Registry (ECC Bridge) ──
+
+  // Upload a strategy
+  if (path === "/api/strategies" && req.method === "POST" && strategyRegistry) {
+    try {
+      const body = await req.json() as { name?: string; code?: string };
+      if (!body.name || !body.code) return json({ error: "name and code are required" }, 400);
+      const result = strategyRegistry.upload(body.name, body.code);
+      return json(result, 201);
+    } catch (err) {
+      return json({ error: String(err) }, 500);
+    }
+  }
+
+  // List strategies
+  if (path === "/api/strategies" && req.method === "GET" && strategyRegistry) {
+    return json({ strategies: strategyRegistry.list(), available: strategyRegistry.isAvailable() });
+  }
+
+  // Run a strategy
+  const stratRunMatch = path.match(/^\/api\/strategies\/([^/]+)\/run$/);
+  if (stratRunMatch && req.method === "POST" && mcpBridge) {
+    try {
+      const name = stratRunMatch[1];
+      const body = await req.json() as {
+        instrument?: string; dryRun?: boolean; maxTicks?: number; tick?: number;
+      };
+      const result = await mcpBridge.callTool("run_strategy", {
+        strategy: name,
+        instrument: body.instrument ?? "ETH-PERP",
+        dry_run: body.dryRun ?? true,
+        max_ticks: body.maxTicks ?? 100,
+        tick: body.tick ?? 10,
+      });
+      return json({ ok: true, strategyName: name, result });
+    } catch (err) {
+      return json({ error: String(err) }, 500);
+    }
   }
 
   // ── Trading (MCP Bridge) ──
