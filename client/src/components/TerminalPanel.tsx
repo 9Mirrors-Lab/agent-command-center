@@ -66,7 +66,7 @@ export default function TerminalPanel({ agentId, workDir }: Props) {
 
     // Connect WebSocket
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const isDev = window.location.port === "5173";
+    const isDev = import.meta.env.DEV;
     const host = isDev ? window.location.hostname + ":4200" : window.location.host;
     const wsUrl = `${protocol}//${host}/ws/terminal/${agentId}`;
     const ws = new WebSocket(wsUrl);

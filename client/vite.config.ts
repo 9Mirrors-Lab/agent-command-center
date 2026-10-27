@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    port: Number(process.env.ACC_CLIENT_PORT) || 4201,
     proxy: {
       "/api": "http://localhost:4200",
       "/ws": {

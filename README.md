@@ -8,8 +8,8 @@ Includes built-in **Hyperliquid trading integration** — monitor accounts, posi
 
 ```bash
 bun install
-bun run dev        # Starts server (:4200) + client (:5173)
-# Open http://localhost:5173
+bun run dev        # Starts server (:4200) + client (:4201)
+# Open http://localhost:4201
 ```
 
 ## What It Does
@@ -89,7 +89,9 @@ The dashboard and agents communicate through a typed message bus. The REST API i
 |---------|------|-------------|
 | Claude Code | Persistent multi-turn | `claude -p --output-format stream-json` |
 | Codex | One-shot per prompt | `codex --approval-mode full-auto -q` |
-| Cursor Agent | One-shot per prompt | `cursor-agent --yolo` |
+| Cursor Agent | One-shot per prompt | `cursor-agent -p --output-format stream-json --yolo` |
+
+**Cursor Agent setup:** ACC does not attach to an open Cursor IDE window. It spawns the [`cursor-agent`](https://cursor.com/docs/cli) CLI in the agent working directory. Before spawning, run `cursor-agent login` in a terminal (or set `CURSOR_API_KEY` for the process that runs `bun run dev:server`). Verify with `cursor-agent about` (should show your email, not &quot;Not logged in&quot;).
 | OpenCode | One-shot per prompt | `opencode run` |
 
 ## Configuration
@@ -179,7 +181,7 @@ sshKey = "~/.ssh/id_ed25519"
 ```bash
 bun install
 bun run dev:server       # Server with hot reload (:4200)
-bun run dev:client       # Vite dev server (:5173)
+bun run dev:client       # Vite dev server (:4201)
 bun run dev              # Both
 bun run build            # Build client to client/dist/
 ```

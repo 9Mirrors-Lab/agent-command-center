@@ -58,7 +58,9 @@ export default function AgentCard({ agent, selected, onSelect, onStop, onResume,
               {RUNTIME_INFO[agent.runtime ?? "claude"]?.label ?? agent.runtime}
             </span>
           )}
-          <span className="text-xs text-text-secondary">{agent.config.model ?? "sonnet"}</span>
+          {(agent.runtime ?? "claude") === "claude" && (
+            <span className="text-xs text-text-secondary">{agent.config.model ?? "sonnet"}</span>
+          )}
           {agent.config.machine && (
             <span className="text-[10px] px-1 rounded bg-accent/10 text-accent">@{agent.config.machine}</span>
           )}

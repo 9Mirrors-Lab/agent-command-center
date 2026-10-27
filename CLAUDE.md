@@ -24,12 +24,13 @@ Browser ←WebSocket→ MessageBus ←child_process→ claude -p --output-format
 ```bash
 bun install                    # Install all workspace deps
 bun run dev:server             # Start server on :4200
-bun run dev:client             # Start Vite dev server on :5173
+bun run dev:client             # Start Vite dev server on :4201
 bun run dev                    # Both (via concurrently)
 bun run build                  # Build client for production
 
 # Environment
 ACC_PORT=4200                  # Server port
+ACC_CLIENT_PORT=4201           # Vite dev client port
 ACC_MANAGER=1                  # Enable manager agent on startup
 ```
 

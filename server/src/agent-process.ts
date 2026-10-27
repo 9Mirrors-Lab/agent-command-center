@@ -116,7 +116,10 @@ export class AgentProcess {
     // Monitor process exit
     this.proc.exited.then((code) => {
       if (this.status === "active") {
-        this.status = code === 0 ? "idle" : "errored";
+        const failedOutput = this.outputLines.some((line) =>
+          /^(Error:|Authentication required)/i.test(line.trim()),
+        );
+        this.status = code === 0 && !failedOutput ? "idle" : "errored";
       }
       this.bus.publish({
         type: "agent:status",
@@ -167,8 +170,22 @@ export class AgentProcess {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const text = decoder.decode(value, { stream: true });
-        console.error(`[agent:${this.id}] stderr:`, text.trim());
+        const text = decoder.decode(value, { stream: true }).trim();
+        if (!text) continue;
+        console.error(`[agent:${this.id}] stderr:`, text);
+        for (const line of text.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const msg = {
+            type: "agent:text" as const,
+            agentId: this.id,
+            content: trimmed.startsWith("Error:") ? trimmed : `[stderr] ${trimmed}`,
+            partial: false,
+            timestamp: Date.now(),
+          };
+          this.handleBusMessage(msg);
+          this.bus.publish(msg);
+        }
       }
     } catch {
       // ignore

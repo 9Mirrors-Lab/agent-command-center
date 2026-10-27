@@ -171,8 +171,17 @@ export default function SpawnDialog({ onSpawn, onClose }: Props) {
           )}
 
           {!isClaude && (
-            <div className="text-xs text-text-secondary bg-bg rounded px-3 py-2 border border-border">
-              {info.isMultiTurn ? "Multi-turn" : "One-shot"} mode. Model and budget options are Claude-specific.
+            <div className="text-xs text-text-secondary bg-bg rounded px-3 py-2 border border-border space-y-1">
+              <p>
+                {info.isMultiTurn ? "Multi-turn" : "One-shot"} mode. Model and budget options are Claude-specific.
+              </p>
+              {runtime === "cursor" && (
+                <p>
+                  Runs the <code className="text-text-primary">cursor-agent</code> CLI in the working directory (not the Cursor IDE sidebar).
+                  Install with Cursor&apos;s CLI, then run <code className="text-text-primary">cursor-agent login</code> or set{" "}
+                  <code className="text-text-primary">CURSOR_API_KEY</code> in the environment that starts the ACC server.
+                </p>
+              )}
             </div>
           )}
 

@@ -39,7 +39,7 @@ export async function tryAutoConfig(): Promise<boolean> {
 
   // Try same-origin first (server serves the client at :4200)
   const sameOrigin = window.location.origin;
-  // Try Vite dev mode (client on :5173, server on :4200)
+  // Try Vite dev mode (client on ACC_CLIENT_PORT, server on :4200)
   const devUrl = `http://${window.location.hostname}:4200`;
   // Default
   const candidates = [sameOrigin, devUrl, DEFAULT_URL];
